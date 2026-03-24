@@ -3,12 +3,17 @@
 #include <Arduino.h>
 #include <IridiumSBD.h>
 
+typedef enum {
+	ATH30_Temperature,
+	ATH30_Humidity,
+	BMP390_Temperature,
+	BMP390_Pressure,
+} SensorDataType;
+
 typedef struct {
 	uint64_t time;
-	float ATH30_temperature;
-	float ATH30_humidity;
-	float BMP390_temperature;
-	float BMP390_pressure;
+    SensorDataType type;
+	float data;
 } __attribute__((packed)) TableEntry;
 
 
@@ -26,7 +31,7 @@ Table *new_table();
 void free_table(Table *t);
 Table *checkTable(Table *t);
 void add_entry(Table *t, TableEntry e);
-Table *add_sensor_data(Table *t, uint64_t time, float ATH30_temperature, float ATH30_humidity, float BMP390_temperature, float BMP390_pressure);
+Table *add_sensor_data(Table *t, uint64_t time, SensorDataType type, float data);
 void seal_table(Table *t);
 SerializedTable serialize_table(Table *t);
 Table *deserialize_table(SerializedTable t);

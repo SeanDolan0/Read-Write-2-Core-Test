@@ -1,11 +1,40 @@
-// code courtesy of https://github.com/HogeyDev with slight modifications
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
-#include "RockblockFunction.h"
-#include "../Sensors.h"
+typedef enum {
+	ATH30_Temperature,
+	ATH30_Humidity,
+	BMP390_Temperature,
+	BMP390_Pressure,
+} SensorDataType;
 
-IridiumSBD IridiumModem(Serial1);
+typedef struct {
+	uint64_t time;
+    SensorDataType type;
+	float data;
+} __attribute__((packed)) TableEntry;
 
 
+typedef struct {
+	unsigned short size;
+	unsigned short capacity;
+	TableEntry *entries;
+} Table;
+
+typedef void * SerializedTable;
+
+Table *new_table();
+void free_table(Table *t);
+Table *checkTable(Table *t);
+void add_entry(Table *t, TableEntry e);
+Table *add_sensor_data(Table *t, uint64_t time, SensorDataType type, float data);
+void seal_table(Table *t);
+SerializedTable serialize_table(Table *t);
+Table *deserialize_table(SerializedTable t);
+size_t table_memsize(Table *t);
+void send_table(Table *t);
 
 Table *new_table() {
     Table *t = (Table *)malloc(sizeof(Table));
@@ -117,7 +146,7 @@ void send_table(Table *t) {
 
     size_t size = table_memsize(t);
 
-    Serial.printf("Sending table with %u entries, size %u bytes\n", t->size, size);
+    printf("Sending table with %u entries, size %zu bytes\n", t->size, size);
 
     // int status = IridiumModem.sendSBDBinary((uint8_t *)st, size);
 
@@ -127,4 +156,33 @@ void send_table(Table *t) {
     // }
 
     free(st);
+}
+
+static size_t timer = 0;
+size_t get_time() {
+    size_t time = timer;
+    timer += 100;
+    return time;
+}
+
+int main() {
+    Table *table = new_table();
+
+    add_sensor_data(table, get_time(), SensorDataType::BMP390_Pressure, 32910.0f);
+    add_sensor_data(table, get_time(), SensorDataType::ATH30_Humidity, 43982.0f);
+    add_sensor_data(table, get_time(), SensorDataType::BMP390_Temperature, 32.0f);
+    add_sensor_data(table, get_time(), SensorDataType::ATH30_Temperature, 9320.0f);
+
+    seal_table(table);
+    SerializedTable st = serialize_table(table);
+    send_table(table);
+
+
+    Table *dst = deserialize_table(st);
+    for (size_t i = 0; i < dst->size; ++i) {
+        TableEntry e = dst->entries[i];
+        printf("[%zu | %d]: %f\n", e.time, e.type, e.data);
+    }
+
+    return 0;
 }
