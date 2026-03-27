@@ -8,16 +8,27 @@
 #include <aht30Lib/driver_aht30_basic.h>
 #include <aht30Function/aht30Function.h>
 #include <BMP390/BMP390Function.h>
+#include <Adafruit_MPU6050.h>
+#include "BluetoothFunction/BluetoothFunction.h"
+#include "PIDHeatController/PIDHeatController.h"
+#include "Sensors.h"
+#include <sstream>
 
 /* ----------------------------------- IO ----------------------------------- */
 
 SemaphoreHandle_t logMutex = NULL;
+Adafruit_MPU6050 mpu;
+
+uint64_t lastPID = 0;
+uint64_t lastTime = 0;
+
+float temp1sec;
 
 void readCore();
 void writeCore();
 
-constexpr BaseType_t SENSOR_CORE_ID = 0;
-constexpr BaseType_t WRITE_CORE_ID = 1;
+constexpr BaseType_t READ_CORE_ID = 1;
+constexpr BaseType_t WRITE_CORE_ID = 0;
 
 void sensorTask(void*) {
     readCore();
@@ -30,7 +41,7 @@ void sdWriteTask(void*) {
 /* ----------------------------- core processes ----------------------------- */
 
 void readCore() {
-    while (true) {
+    while (true) {      
 
         // AHT30 sensor
         std::tuple<float, uint8_t, bool> sensorData = readAht30();
@@ -39,26 +50,45 @@ void readCore() {
         bool success = std::get<2>(sensorData);
 
         if (success) {
-            writeDataToBuffer("ATH30_temperature", temperature);
-            writeDataToBuffer("ATH30_humidity", (float)humidity);
+            writeDataToBuffer("TempIns", temperature);
+            writeDataToBuffer("Humidity", (float)humidity);
+            
+        }
+
+        if (millis() - lastPID < 1000) {
+            temp1sec = temperature;
         }
         
+        // MPU6050 sensor
+        sensors_event_t a, g, temp;
+        mpu.getEvent(&a, &g, &temp);
+        writeDataToBuffer("MPUTemp", temp.temperature);
+        writeDataToBuffer("AccX", a.acceleration.x);
+        writeDataToBuffer("AccY", a.acceleration.y);
+        writeDataToBuffer("AccZ", a.acceleration.z);
+
         // BMP390 sensor
 
-        bmp3_data bmp_data = Temp_Presure_Write_To_SD();
+        // bmp3_data bmp_data = Temp_Presure_Write_To_SD();
         
-        if (bmp_data.success) {
-            writeDataToBuffer("BMP390_temperature", (float)bmp_data.temperature);
-            writeDataToBuffer("BMP390_pressure", (float)bmp_data.pressure);
-        }
+        // if (bmp_data.success) {
+        //     writeDataToBuffer("BMP390_temperature", (float)bmp_data.temperature);
+        //     writeDataToBuffer("BMP390_pressure", (float)bmp_data.pressure);
+        // }
 
         // Other Sensors
 
+
+
+        delay(50);
     }
 }
 
 void writeCore() {
     while (true) {
+
+        /* ------------------------------ SD Card Write ----------------------------- */
+
         uint32_t now = millis();
         if (now - lastWriteTime >= WRITE_INTERVAL_MS) {
             if (!LogWriteBuffer()) {
@@ -70,7 +100,51 @@ void writeCore() {
                 lastWriteTime = now;
             }
         }
-        delay(1000);
+        if (now - lastPID >= 1000) {
+                float pidOutput = CalculatePID(targetTemperature, temp1sec, 1.0f);
+                (void)pidOutput;
+
+            lastPID = now;
+        }
+        
+
+        /* -------------------------------- Bluetooth ------------------------------- */
+        
+        if (isConnected && SerialBT.hasClient()) {
+            // SerialBT.println(temp1sec);
+            if (SerialBT.available()) {
+                String incoming = SerialBT.readStringUntil('\n');
+                incoming.trim();
+
+                int splitIndex = incoming.indexOf(' ');
+                if (splitIndex > 0) {
+                    String command = incoming.substring(0, splitIndex);
+                    String value = incoming.substring(splitIndex + 1);
+                    value.trim();
+                    float parsed = value.toFloat();
+
+                    if (command == "kp") {
+                        kp = parsed;
+                        SerialBT.print("Updated kp: ");
+                        SerialBT.println(kp);
+                    } else if (command == "ki") {
+                        ki = parsed;
+                        SerialBT.print("Updated ki: ");
+                        SerialBT.println(ki);
+                    } else if (command == "kd") {
+                        kd = parsed;
+                        SerialBT.print("Updated kd: ");
+                        SerialBT.println(kd);
+                    } else if (command == "target") {
+                        targetTemperature = parsed;
+                        SerialBT.print("Updated target temperature: ");
+                        SerialBT.println(targetTemperature);
+                    }
+                }
+            }    
+        }
+        
+        delay(100); 
     }
 }
 
@@ -78,11 +152,14 @@ void writeCore() {
 
 void setup() {
     Serial.begin(115200);
-    delay(200);
+    
+    while(!Serial) {
+        delay(100);
+    }
+
     // randomSeed((uint32_t)esp_random());
 
     /* ---------------------------------- inits --------------------------------- */
-
 
     // Initialize AHT30 Temperature sensor
 
@@ -93,8 +170,16 @@ void setup() {
         }
     }
 
+    // Initialize MPU6050 sensor
+    if(!mpu.begin()) {
+        Serial.println("Failed to initialize MPU6050 sensor");
+        while (true) {
+            delay(1000);
+        }
+    }
+
     // Initialize BMP390 Pressure sensor
-    initBMP390();
+    // initBMP390();
 
 
     // Initialize Mutex
@@ -127,6 +212,9 @@ void setup() {
         }
     }
 
+    // Initialize Bluetooth after blocking setup work to avoid early session drops.
+    initBluetooth();
+
     /* --------------------------- Create pinned tasks -------------------------- */
 
     xTaskCreatePinnedToCore(
@@ -136,7 +224,7 @@ void setup() {
         NULL,
         1,
         NULL,
-        SENSOR_CORE_ID
+        READ_CORE_ID
     );
     
     xTaskCreatePinnedToCore(

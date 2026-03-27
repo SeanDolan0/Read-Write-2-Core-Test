@@ -2,13 +2,7 @@
 
 #include <Arduino.h>
 #include <IridiumSBD.h>
-
-typedef enum {
-	ATH30_Temperature,
-	ATH30_Humidity,
-	BMP390_Temperature,
-	BMP390_Pressure,
-} SensorDataType;
+#include "../Sensors.h"
 
 typedef struct {
 	uint64_t time;

@@ -13,11 +13,11 @@ const char* CSV_FILE_PATH = "/sensor_log.csv";
 uint32_t lastWriteTime = 0;
 bool sdReady = false;
 
-char csvLogBuffer[65536]; // 64KB buffer for log entries
+char csvLogBuffer[CSV_LOG_BUFFER_SIZE];
 size_t logBufferlen = 0;
 
-static const char *const *CSV_COLUMNS = SENSOR_NAMES;
-static const int NUM_COLUMNS = NUM_SENSORS;
+static const char *CSV_COLUMNS[SensorDataType::SENSOR_COUNT];
+static const int NUM_SENSORS = SensorDataType::SENSOR_COUNT;
 
 static const uint32_t ROCKBLOCK_SEND_INTERVAL_MS = 60000;
 static Table* rockblockTable = NULL;
@@ -55,6 +55,10 @@ bool initSDCard() { // Init SD card and create CSV file with header if it doesn'
         return false;
     }
 
+    for (size_t i = 0; i < SensorDataType::SENSOR_COUNT; i++) {
+        CSV_COLUMNS[i] = get_sensor_name((SensorDataType)i);
+    }
+
     uint64_t cardSize = SD.cardSize() / (1000 * 1000 * 1000);
     Serial.printf("SD Card Size: %lluGB\n", cardSize);
 
@@ -67,7 +71,7 @@ bool initSDCard() { // Init SD card and create CSV file with header if it doesn'
             return false;
         }
         headerFile.print("timestamp_ms");
-        for (int i = 0; i < NUM_COLUMNS; i++) {
+        for (int i = 0; i < NUM_SENSORS; i++) {
             headerFile.print(",");
             headerFile.print(CSV_COLUMNS[i]);
         }
@@ -118,31 +122,28 @@ bool LogWriteBuffer() { // Write log buffer to SD card and clear buffer
 void writeDataToBuffer(const char* name, float value) { // Write data to log buffer
     if (rockblockTable) {
         
-        float data[NUM_SENSORS];
-        for (int i = 0; i < NUM_SENSORS; i++) {
-            data[i] = INVALID_RESPONSES[i];
-        }
-
-
+        int index = -1;
         for (int i = 0; i < NUM_SENSORS; i++) {
             if (strcmp(name, CSV_COLUMNS[i]) == 0) {
-                data[i] = value;
+                index = i;
                 break;
             }
         }
 
-        if (table_memsize(rockblockTable) + sizeof(TableEntry) + 2 <= 340) {
-            add_entry(rockblockTable, (TableEntry){ .time = millis(), .ATH30_temperature = data[2], .ATH30_humidity = data[3], .BMP390_temperature = data[0], .BMP390_pressure = data[1] });
+        if (table_memsize(rockblockTable) + sizeof(TableEntry) + 2 <= 340 && index != -1) { // Check if adding this entry would exceed the 340 byte SBD limit (with some buffer for metadata)
+            add_entry(rockblockTable, (TableEntry){ .time = millis(), .type = (SensorDataType)index, .data = value, });
+        } else if (index == -1) {
+            Serial.println("Unknown sensor name, not adding to rockblock buffer value for " + String(name)); 
         }
     }
 
-    for (int i = 0; i < NUM_COLUMNS; i++) { 
+    for (int i = 0; i < NUM_SENSORS; i++) { 
         if (strcmp(name, CSV_COLUMNS[i]) == 0) { 
             char entry[64];
 
             int pos = snprintf(entry, sizeof(entry), "%u", millis()); 
 
-            for (int j = 0; j < NUM_COLUMNS; j++) { 
+            for (int j = 0; j < NUM_SENSORS; j++) { 
                 if (j == i) {
                     int written = snprintf(entry + pos, sizeof(entry) - pos, ",%.2f", value);
                     if (written < 0 || pos + written >= (int)sizeof(entry)) { 

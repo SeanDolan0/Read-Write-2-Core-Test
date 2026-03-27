@@ -1,14 +1,80 @@
 #pragma once
 
 #include <Arduino.h>
+#include <limits>
 #include "SdFunction/SdFunction.h"
-#include "RockblockFunction/RockblockFunction.h"
 #include <freertos/FreeRTOS.h>
+
+/* ------------------------------ PID Constants ----------------------------- */
+
+extern float kp;
+extern float ki;
+extern float kd;
+extern float tragetTemperature;
+extern float maxVal;
+
+/* ---------------------------- Invalid Constants --------------------------- */
 
 constexpr float InvalidTemperature = -512.0f;
 constexpr float InvalidHumidity = -1.0f;
 constexpr float InvalidPressure = -1.0f;
+constexpr float InvalidPosition = std::numeric_limits<float>::infinity();
 
-constexpr char* const SENSOR_NAMES[] = {"BMP390_temperature", "BMP390_pressure", "ATH30_temperature", "ATH30_humidity"};
-constexpr float const INVALID_RESPONSES[] = {InvalidTemperature, InvalidPressure, InvalidTemperature, InvalidHumidity};
-constexpr int NUM_SENSORS = sizeof(SENSOR_NAMES) / sizeof(SENSOR_NAMES[0]);
+constexpr float const INVALID_RESPONSES[] = { 
+    InvalidTemperature,
+    InvalidTemperature,
+    InvalidTemperature,
+    InvalidTemperature,
+    InvalidTemperature,
+
+    InvalidPressure,
+    InvalidPressure,
+ 
+    InvalidHumidity,
+
+    InvalidPosition, InvalidPosition, InvalidPosition,
+    InvalidPosition, InvalidPosition,
+    InvalidPosition, InvalidPosition, InvalidPosition
+}; 
+
+/* ------------------------------ Sensor Names ------------------------------ */
+
+// Sensor count needs to be last
+typedef enum {
+    TempIns,
+    TempOut,
+    BaroTempIns,
+    BaroTempOut,
+    MPUTemp,
+
+    PressIns,
+    PressOut,
+
+    Humidity,
+
+    PosX, PosY, PosZ,
+    AngAccel, AngPos,
+    AccX, AccY, AccZ,
+
+    SENSOR_COUNT,
+} SensorDataType;
+
+inline const char *get_sensor_name(SensorDataType type) {
+    static const char *names[] = {
+        "TempIns",
+        "TempOut",
+        "BaroTempIns",
+        "BaroTempOut",
+        "MPUTemp",
+
+        "PressIns",
+        "PressOut",
+
+        "Humidity",
+
+        "PosX", "PosY", "PosZ",
+        "AngAccel", "AngPos",
+        "AccX", "AccY", "AccZ"
+    };
+    return names[type];
+}
