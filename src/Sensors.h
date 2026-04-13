@@ -20,6 +20,7 @@ constexpr float InvalidHumidity = -1.0f;
 constexpr float InvalidPressure = -1.0f;
 constexpr float InvalidPosition = std::numeric_limits<float>::infinity();
 
+
 constexpr float const INVALID_RESPONSES[] = { 
     InvalidTemperature,
     InvalidTemperature,
@@ -31,6 +32,12 @@ constexpr float const INVALID_RESPONSES[] = {
     InvalidPressure,
  
     InvalidHumidity,
+
+    InvalidPosition, 
+    InvalidPosition, 
+
+    InvalidPosition, 
+    InvalidPosition,
 
     InvalidPosition, InvalidPosition, InvalidPosition,
     InvalidPosition, InvalidPosition,
@@ -52,6 +59,12 @@ typedef enum {
 
     Humidity,
 
+    hCurrent,
+    hVoltage,
+
+    lCurrent,
+    lVoltage,
+
     PosX, PosY, PosZ,
     AngAccel, AngPos,
     AccX, AccY, AccZ,
@@ -71,6 +84,12 @@ inline const char *get_sensor_name(SensorDataType type) {
         "PressOut",
 
         "Humidity",
+
+        "hCurrent",
+        "hVoltage",
+
+        "lCurrent",
+        "lVoltage",
 
         "PosX", "PosY", "PosZ",
         "AngAccel", "AngPos",

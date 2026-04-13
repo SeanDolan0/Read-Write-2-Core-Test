@@ -13,6 +13,8 @@
 #include "PIDHeatController/PIDHeatController.h"
 #include "Sensors.h"
 #include <sstream>
+#include "PWMController/PWMController.h"
+#include "INA228/INA.h"
 
 /* ----------------------------------- IO ----------------------------------- */
 
@@ -21,6 +23,7 @@ Adafruit_MPU6050 mpu;
 
 uint64_t lastPID = 0;
 uint64_t lastTime = 0;
+float dutyCycle = 0.0f;
 
 float temp1sec;
 
@@ -43,7 +46,7 @@ void sdWriteTask(void*) {
 void readCore() {
     while (true) {      
 
-        // AHT30 sensor
+        // AHT30 sensor 1
         std::tuple<float, uint8_t, bool> sensorData = readAht30();
         float temperature = std::get<0>(sensorData);
         uint8_t humidity = std::get<1>(sensorData);
@@ -59,7 +62,7 @@ void readCore() {
             temp1sec = temperature;
         }
         
-        // MPU6050 sensor
+        // MPU6050 sensor 
         sensors_event_t a, g, temp;
         mpu.getEvent(&a, &g, &temp);
         writeDataToBuffer("MPUTemp", temp.temperature);
@@ -67,20 +70,24 @@ void readCore() {
         writeDataToBuffer("AccY", a.acceleration.y);
         writeDataToBuffer("AccZ", a.acceleration.z);
 
-        // BMP390 sensor
-
-        // bmp3_data bmp_data = Temp_Presure_Write_To_SD();
+        // BMP390 sensor 1
+        bmp3_data bmp_data = Temp_Presure_Write_To_SD();
         
-        // if (bmp_data.success) {
-        //     writeDataToBuffer("BMP390_temperature", (float)bmp_data.temperature);
-        //     writeDataToBuffer("BMP390_pressure", (float)bmp_data.pressure);
-        // }
+        if (bmp_data.success) {
+            writeDataToBuffer("BMP390_temperature", (float)bmp_data.temperature);
+            writeDataToBuffer("BMP390_pressure", (float)bmp_data.pressure);
+        }
 
-        // Other Sensors
+        // INA 228 High Voltage
+        std::tuple<float, float> ina228Data = ReadINA228();
+        float current = std::get<0>(ina228Data);
+        float voltage = std::get<1>(ina228Data);
+        writeDataToBuffer("hCurrent", current);
+        writeDataToBuffer("hVoltage", voltage);
 
 
 
-        delay(50);
+        delay(100);
     }
 }
 
@@ -109,41 +116,68 @@ void writeCore() {
         
 
         /* -------------------------------- Bluetooth ------------------------------- */
-        
-        if (isConnected && SerialBT.hasClient()) {
-            // SerialBT.println(temp1sec);
-            if (SerialBT.available()) {
-                String incoming = SerialBT.readStringUntil('\n');
-                incoming.trim();
 
-                int splitIndex = incoming.indexOf(' ');
-                if (splitIndex > 0) {
-                    String command = incoming.substring(0, splitIndex);
-                    String value = incoming.substring(splitIndex + 1);
-                    value.trim();
-                    float parsed = value.toFloat();
+        if (SerialBT.available() > 0)
+        {
+            // Clear buffer
 
-                    if (command == "kp") {
-                        kp = parsed;
-                        SerialBT.print("Updated kp: ");
-                        SerialBT.println(kp);
-                    } else if (command == "ki") {
-                        ki = parsed;
-                        SerialBT.print("Updated ki: ");
-                        SerialBT.println(ki);
-                    } else if (command == "kd") {
-                        kd = parsed;
-                        SerialBT.print("Updated kd: ");
-                        SerialBT.println(kd);
-                    } else if (command == "target") {
-                        targetTemperature = parsed;
-                        SerialBT.print("Updated target temperature: ");
-                        SerialBT.println(targetTemperature);
-                    }
+            String incoming = SerialBT.readStringUntil('\n');
+            incoming.trim();
+
+            int splitIndex = incoming.indexOf(' ');
+            if (splitIndex > 0)
+            {
+                String command = incoming.substring(0, splitIndex);
+                String value = incoming.substring(splitIndex + 1);
+                value.trim();
+                float parsed = value.toFloat();
+
+                if (command == "kp")
+                {
+                    kp = parsed;
+                    SerialBT.print("Updated kp: ");
+                    SerialBT.println(kp);
                 }
-            }    
+                else if (command == "ki")
+                {
+                    ki = parsed;
+                    SerialBT.print("Updated ki: ");
+                    SerialBT.println(ki);
+                }
+                else if (command == "kd")
+                {
+                    kd = parsed;
+                    SerialBT.print("Updated kd: ");
+                    SerialBT.println(kd);
+                }
+                else if (command == "target")
+                {
+                    targetTemperature = parsed;
+                    SerialBT.print("Updated target temperature: ");
+                    SerialBT.println(targetTemperature);
+                }
+                else if (command == "duty")
+                {
+                    dutyCycle = (int)parsed;
+                    dutyCycle = constrain(dutyCycle, 0, 255);
+                    SerialBT.print("Updated duty cycle: ");
+                    SerialBT.println(dutyCycle);
+                    ledcWrite(ledChannel, dutyCycle);
+                }
+                else if (command == "disable")
+                {
+                    btStop();
+                    SerialBT.println("Bluetooth disabled");
+                }
+                else
+                {
+                    SerialBT.println("Unknown command");
+                }
+            }
+            while (SerialBT.available() > 0)
+                SerialBT.read();
         }
-        
+
         delay(100); 
     }
 }
@@ -179,7 +213,7 @@ void setup() {
     }
 
     // Initialize BMP390 Pressure sensor
-    // initBMP390();
+    initBMP390();
 
 
     // Initialize Mutex
@@ -212,7 +246,16 @@ void setup() {
         }
     }
 
+    // Initialize INA228 sensor
+    initializeINA228();
+
+
+    // Initialize PID controller
+    PWMSetup();
+
+
     // Initialize Bluetooth after blocking setup work to avoid early session drops.
+    
     initBluetooth();
 
     /* --------------------------- Create pinned tasks -------------------------- */

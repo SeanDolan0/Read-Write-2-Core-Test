@@ -5,9 +5,10 @@
 BluetoothSerial SerialBT;
 bool isConnected = false;
 
-void connectionStatus(esp_spp_cb_event_t event, esp_spp_cb_param_t *param) {
-    Serial.printf("[BT] event=%d\n", (int)event);
 
+void connectionStatus(esp_spp_cb_event_t event, esp_spp_cb_param_t *param) {
+    Serial.printf("[BT] event=%d (%s)\n", (int)event, event);
+    
     if (event == ESP_SPP_SRV_OPEN_EVT) {
         Serial.printf("[BT] srv_open status=%d handle=%lu\n", (int)param->srv_open.status, (unsigned long)param->srv_open.handle);
         if (param->srv_open.status == ESP_SPP_SUCCESS) {
@@ -18,10 +19,6 @@ void connectionStatus(esp_spp_cb_event_t event, esp_spp_cb_param_t *param) {
         isConnected = false;
         Serial.printf("[BT] close status=%d port_status=%lu async=%d\n", (int)param->close.status, (unsigned long)param->close.port_status, (int)param->close.async);
         Serial.println("Client disconnected");
-    } else if (event == ESP_SPP_OPEN_EVT) {
-        Serial.println("Client open event");
-    } else if (event == ESP_SPP_CL_INIT_EVT) {
-        Serial.println("Client init event");
     }
 }
 
@@ -31,6 +28,7 @@ void initBluetooth() {
         printf("Error code: %d\n", SerialBT.getWriteError());
         return;
     }
+
     SerialBT.setTimeout(50);
     SerialBT.register_callback(connectionStatus);
     Serial.println("Bluetooth Started");
