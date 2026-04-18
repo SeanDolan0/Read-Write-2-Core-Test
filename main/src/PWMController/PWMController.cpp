@@ -1,6 +1,6 @@
 
 #include <Arduino.h>
-#include <PWMController/PWMController.h>
+#include "src/PWMController/PWMController.h"
 
 
 /*
@@ -10,9 +10,8 @@
 
 void PWMSetup() {
   // Configure LEDC PWM
-  ledcSetup(ledChannel, freq, resolution);
-  ledcAttachPin(pwmPin, ledChannel);
-  
+  ledcAttach(pwmPin, freq, resolution);
+
   SerialBT.println("--- MOSFET PWM Controller ---");
   SerialBT.println("Enter a duty cycle value (0-255):");
 }

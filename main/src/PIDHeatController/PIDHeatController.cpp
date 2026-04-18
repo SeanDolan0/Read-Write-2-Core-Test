@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include "../Sensors.h"
+#include "src/Sensors.h"
 
 float integral   = 0;
 float derivative = 0;

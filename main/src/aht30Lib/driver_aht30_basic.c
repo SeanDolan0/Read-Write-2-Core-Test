@@ -34,7 +34,7 @@
  * </table>
  */
 
-#include "driver_aht30_basic.h"
+#include "src/aht30Lib/driver_aht30_basic.h"
 
 static aht30_handle_t gs_handle;        /**< aht30 handle */
 

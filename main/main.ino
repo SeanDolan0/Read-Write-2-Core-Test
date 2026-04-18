@@ -1,25 +1,29 @@
 /* ---------------------------- library includes --------------------------- */
 
-#include <Arduino.h>
-#include "SdFunction/SdFunction.h"
-#include "RockblockFunction/RockblockFunction.h"
-#include <freertos/FreeRTOS.h>
-#include <aht30Lib/driver_aht30.h>
-#include <aht30Lib/driver_aht30_basic.h>
-#include <aht30Function/aht30Function.h>
-#include <BMP390/BMP390Function.h>
-#include <Adafruit_MPU6050.h>
-#include "BluetoothFunction/BluetoothFunction.h"
-#include "PIDHeatController/PIDHeatController.h"
-#include "Sensors.h"
 #include <sstream>
-#include "PWMController/PWMController.h"
-#include "INA228/INA.h"
+
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_BMP3XX.h>
+#include <freertos/FreeRTOS.h>
+
+#include "src/SdFunction/SdFunction.h"
+#include "src/RockblockFunction/RockblockFunction.h"
+#include "src/aht30Lib/driver_aht30.h"
+#include "src/aht30Lib/driver_aht30_basic.h"
+#include "src/aht30Function/aht30Function.h"
+#include "src/BluetoothFunction/BluetoothFunction.h"
+#include "src/PIDHeatController/PIDHeatController.h"
+#include "src/PWMController/PWMController.h"
+#include "src/INA228/INA.h"
+#include "src/Sensors.h"
 
 /* ----------------------------------- IO ----------------------------------- */
 
 SemaphoreHandle_t logMutex = NULL;
 Adafruit_MPU6050 mpu;
+
+Adafruit_BMP3XX bmp1;
+Adafruit_BMP3XX bmp2;
 
 uint64_t lastPID = 0;
 uint64_t lastTime = 0;
@@ -71,12 +75,12 @@ void readCore() {
         writeDataToBuffer("AccZ", a.acceleration.z);
 
         // BMP390 sensor 1
-        bmp3_data bmp_data = Temp_Presure_Write_To_SD();
+        // bmp3_data bmp_data = Temp_Presure_Write_To_SD();
         
-        if (bmp_data.success) {
-            writeDataToBuffer("BMP390_temperature", (float)bmp_data.temperature);
-            writeDataToBuffer("BMP390_pressure", (float)bmp_data.pressure);
-        }
+        // if (bmp_data.success) {
+        //     writeDataToBuffer("BMP390_temperature", (float)bmp_data.temperature);
+        //     writeDataToBuffer("BMP390_pressure", (float)bmp_data.pressure);
+        // }
 
         // INA 228 High Voltage
         std::tuple<float, float> ina228Data = ReadINA228();
@@ -186,6 +190,7 @@ void writeCore() {
 
 void setup() {
     Serial.begin(115200);
+    Serial.println("Hello, World!");
     
     while(!Serial) {
         delay(100);
@@ -203,6 +208,7 @@ void setup() {
             delay(1000);
         }
     }
+    Serial.println("AHT30 Initialized");
 
     // Initialize MPU6050 sensor
     if(!mpu.begin()) {
@@ -211,10 +217,22 @@ void setup() {
             delay(1000);
         }
     }
+    Serial.println("BMP6050 Initialized");
 
     // Initialize BMP390 Pressure sensor
-    initBMP390();
+    if (!bmp1.begin_I2C()) {
+        Serial.println("Could not find a valid BMP sensor #1, check wiring!");
+        while (1)
+            ;
+    }
+    Serial.println("BMP1 Initialized");
 
+    if (!bmp2.begin_I2C(0x76)) {
+        Serial.println("Could not find a valid BMP sensor #2, check wiring!");
+        while (1)
+            ;
+    }
+    Serial.println("BMP2 Initialized");
 
     // Initialize Mutex
 

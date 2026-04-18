@@ -1,4 +1,5 @@
-#pragma once
+#ifndef SENSORS_H
+#define SENSORS_H
 
 #include <Arduino.h>
 #include <limits>
@@ -97,3 +98,5 @@ inline const char *get_sensor_name(SensorDataType type) {
     };
     return names[type];
 }
+
+#endif

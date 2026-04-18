@@ -1,9 +1,9 @@
 #include <Arduino.h>
 #include <SD.h>
 #include <SPI.h>
-#include "RockblockFunction/RockblockFunction.h"
-#include "SdFunction.h"
-#include "../Sensors.h"
+#include "src/RockblockFunction/RockblockFunction.h"
+#include "src/SdFunction/SdFunction.h"
+#include "src/Sensors.h"
 
 #define SD_CS_PIN 5
 #define MUTEX_TIMEOUT_MS 5000

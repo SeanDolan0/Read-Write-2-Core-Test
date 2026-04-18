@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-#include "driver_aht30_interface.h"
+#include "src/aht30Lib/driver_aht30_interface.h"
 
 /**
  * @brief  interface iic bus init

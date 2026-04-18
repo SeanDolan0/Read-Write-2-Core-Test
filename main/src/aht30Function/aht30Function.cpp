@@ -1,6 +1,6 @@
 #include <Arduino.h>
-#include <aht30Lib/driver_aht30.h>
-#include <aht30Lib/driver_aht30_basic.h>
+#include "src/aht30Lib/driver_aht30.h"
+#include "src/aht30Lib/driver_aht30_basic.h"
 
 bool initAht30() {
     if (aht30_basic_init() != 0){

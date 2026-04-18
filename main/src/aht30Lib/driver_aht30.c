@@ -34,7 +34,7 @@
  * </table>
  */
 
-#include "driver_aht30.h"
+#include "src/aht30Lib/driver_aht30.h"
 
 /**
  * @brief chip information definition
