@@ -2,9 +2,13 @@
 
 #include <sstream>
 
-#include <Adafruit_MPU6050.h>
-#include <Adafruit_BMP3XX.h>
 #include <freertos/FreeRTOS.h>
+#include <Adafruit_BMP3XX.h>
+#include <Adafruit_FXOS8700.h>
+#include <Adafruit_FXAS21002C.h>
+#include <Adafruit_MCP9808.h>
+#include <Adafruit_AHTX0.h>
+#include <MadgwickAHRS.h>
 
 #include "src/SdFunction/SdFunction.h"
 #include "src/RockblockFunction/RockblockFunction.h"
@@ -20,10 +24,23 @@
 /* ----------------------------------- IO ----------------------------------- */
 
 SemaphoreHandle_t logMutex = NULL;
-Adafruit_MPU6050 mpu;
 
-Adafruit_BMP3XX bmp1;
-Adafruit_BMP3XX bmp2;
+Adafruit_BMP3XX bmp_outside;
+Adafruit_BMP3XX bmp_inside;
+bool bmp_outside_alive;
+bool bmp_inside_alive;
+
+Adafruit_FXOS8700 fxos = Adafruit_FXOS8700(0x1F);
+Adafruit_FXAS21002C fxas = Adafruit_FXAS21002C(0x0021002C);
+bool fxos_fxas_alive;
+Madgwick madgwick;
+float mag_offsets[3] = {0.0, 0.0, 0.0};
+
+Adafruit_MCP9808 mcp = Adafruit_MCP9808();
+bool mcp_alive;
+
+Adafruit_AHTX0 aht;
+bool aht_alive;
 
 uint64_t lastPID = 0;
 uint64_t lastTime = 0;
@@ -59,20 +76,33 @@ void readCore() {
         if (success) {
             writeDataToBuffer("TempIns", temperature);
             writeDataToBuffer("Humidity", (float)humidity);
-            
         }
 
         if (millis() - lastPID < 1000) {
             temp1sec = temperature;
         }
         
-        // MPU6050 sensor 
-        sensors_event_t a, g, temp;
-        mpu.getEvent(&a, &g, &temp);
-        writeDataToBuffer("MPUTemp", temp.temperature);
-        writeDataToBuffer("AccX", a.acceleration.x);
-        writeDataToBuffer("AccY", a.acceleration.y);
-        writeDataToBuffer("AccZ", a.acceleration.z);
+        // MPU6050 sensor
+        //% sensors_event_t a, g, temp;
+        //% mpu.getEvent(&a, &g, &temp);
+        //% writeDataToBuffer("MPUTemp", temp.temperature);
+        //% writeDataToBuffer("AccX", a.acceleration.x);
+        //% writeDataToBuffer("AccY", a.acceleration.y);
+        //% writeDataToBuffer("AccZ", a.acceleration.z);
+
+        // FXOS8700/FXAS21002 sensor 
+        // sensors_event_t a, m, g;
+        // float mx = m.magnetic.x - mag_offsets[0];
+        // float my = m.magnetic.y - mag_offsets[1];
+        // float mz = m.magnetic.z - mag_offsets[2];
+        // madgwick.update(g.gyro.x * 57.2958, g.gyro.y * 57.2958, g.gyro.z * 57.2958,
+        //                 a.acceleration.x, a.acceleration.y, a.acceleration.z,
+        //                 mx, my, mz);
+        // float roll = filter.getRoll();
+        // float pitch = filter.getPitch();
+        // float yaw = filter.getYaw();
+        // float lin_accel_x = a.acceleration.x - (sin(pitch * 0.0174) * 9.8);
+        // writeDataToBuffer("AccX", lin_accel_x);
 
         // BMP390 sensor 1
         // bmp3_data bmp_data = Temp_Presure_Write_To_SD();
@@ -188,9 +218,69 @@ void writeCore() {
 
 /* ------------------------------ inital setup ------------------------------ */
 
+#define MAX_INIT_ATTEMPTS 10
+
+int attempt_init_fxos8700(int current_attempt = 1) {
+    if (current_attempt > MAX_INIT_ATTEMPTS) {
+        return 0;
+    }
+    Serial.printf("Attempt %d to initialize FXOS8700\n", current_attempt);
+
+    if (!fxos.begin()) {
+        return attempt_init_fxos8700(current_attempt+1);
+    }
+    return 1;
+}
+int attempt_init_fxas21002(int current_attempt = 1) {
+    if (current_attempt > MAX_INIT_ATTEMPTS) {
+        return 0;
+    }
+    Serial.printf("Attempt %d to initialize FXAS21002\n", current_attempt);
+
+    if (!fxas.begin()) {
+        return attempt_init_fxas21002(current_attempt+1);
+    }
+    return 1;
+}
+int attempt_init_bmp390(Adafruit_BMP3XX *bmp, int address, int current_attempt = 1) {
+    if (current_attempt > MAX_INIT_ATTEMPTS) {
+        return 0;
+    }
+    Serial.printf("Attempt %d to initialize BMP390 on I2C Address %x\n", current_attempt, address);
+
+    if (!bmp->begin_I2C(address)) {
+        return attempt_init_bmp390(bmp, address, current_attempt+1);
+    }
+    return 1;
+}
+int attempt_init_mcp9808(int current_attempt = 1) {
+    if (current_attempt > MAX_INIT_ATTEMPTS) {
+        return 0;
+    }
+    Serial.printf("Attempt %d to initialize MCP9808\n", current_attempt);
+
+    if (!mcp.begin(0x18)) {
+        return attempt_init_mcp9808(current_attempt+1);
+    }
+    mcp.setResolution(3);
+    mcp.wake();
+    return 1;
+}
+int attempt_init_aht30(int current_attempt = 1) {
+    if (current_attempt > MAX_INIT_ATTEMPTS) {
+        return 0;
+    }
+    Serial.printf("Attempt %d to initialize AHT30\n", current_attempt);
+
+    if (!aht.begin()) {
+        return attempt_init_aht30(current_attempt+1);
+    }
+    return 1;
+}
+
 void setup() {
     Serial.begin(115200);
-    Serial.println("Hello, World!");
+    Serial.println("ESP32 Started");
     
     while(!Serial) {
         delay(100);
@@ -202,37 +292,38 @@ void setup() {
 
     // Initialize AHT30 Temperature sensor
 
-    if (aht30_basic_init() != 0) {
-        Serial.println("Failed to initialize AHT30 sensor");
-        while (true) {
-            delay(1000);
-        }
+    if (aht_alive = attempt_init_aht30()) {
+        Serial.println("AHT30 Initialized\n");
+    } else {
+        Serial.println("Failed to initialize AHT30 sensor\n");
     }
-    Serial.println("AHT30 Initialized");
 
-    // Initialize MPU6050 sensor
-    if(!mpu.begin()) {
-        Serial.println("Failed to initialize MPU6050 sensor");
-        while (true) {
-            delay(1000);
-        }
+    // Initialize FXOS8700/FXAS21002 sensor
+    if(fxos_fxas_alive = (attempt_init_fxos8700() && attempt_init_fxas21002())) {
+        Serial.println("FXOS8700/FXAS21002 Initialized\n");
+    } else {
+        Serial.println("Failed to initialize FXOS8700/FXAS21002 sensor\n");
+        madgwick.begin(100);
     }
-    Serial.println("BMP6050 Initialized");
 
     // Initialize BMP390 Pressure sensor
-    if (!bmp1.begin_I2C()) {
-        Serial.println("Could not find a valid BMP sensor #1, check wiring!");
-        while (1)
-            ;
+    if (bmp_outside_alive = attempt_init_bmp390(&bmp_outside, 0x77)) { // outside temp/pres
+        Serial.println("Outside BMP390 on I2C Address 0x77 Initialized\n");
+    } else {
+        Serial.println("Could not find a valid outside BMP sensor, check wiring!\n");
     }
-    Serial.println("BMP1 Initialized");
 
-    if (!bmp2.begin_I2C(0x76)) {
-        Serial.println("Could not find a valid BMP sensor #2, check wiring!");
-        while (1)
-            ;
+    if (bmp_inside_alive = attempt_init_bmp390(&bmp_inside, 0x76)) { // inside temp/pres
+        Serial.println("Inside BMP390 on I2C Address 0x76 Initialized\n");
+    } else {
+        Serial.println("Could not find a valid inside BMP sensor, check wiring!\n");
     }
-    Serial.println("BMP2 Initialized");
+
+    if (mcp_alive = attempt_init_mcp9808()) {
+        Serial.println("MCP9808 Initialized\n");
+    } else {
+        Serial.println("Failed to initialize MCP9808 sensor\n");
+    }
 
     // Initialize Mutex
 
@@ -243,7 +334,6 @@ void setup() {
             delay(1000);
         }
     }
-
 
     // Initialize SD card
     
