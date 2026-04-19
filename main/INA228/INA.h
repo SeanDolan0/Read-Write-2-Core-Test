@@ -2,10 +2,15 @@
 
 #include <Arduino.h>
 #include <BluetoothSerial.h>
-
+#include <Adafruit_INA228.h>
 
 extern BluetoothSerial SerialBT;
 
+typedef struct {
+    float current;
+    float busVoltage;
+} INA_Data_Return;
+
 void initializeINA228();
-std::tuple<float, float> ReadINA228();
+INA_Data_Return ReadINA228();
 void printINA228();

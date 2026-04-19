@@ -8,17 +8,16 @@
 #include <Adafruit_FXAS21002C.h>
 #include <Adafruit_MCP9808.h>
 #include <Adafruit_AHTX0.h>
+#include <Adafruit_INA228.h>
 #include <MadgwickAHRS.h>
 
 #include "src/SdFunction/SdFunction.h"
 #include "src/RockblockFunction/RockblockFunction.h"
-#include "src/aht30Lib/driver_aht30.h"
-#include "src/aht30Lib/driver_aht30_basic.h"
 #include "src/aht30Function/aht30Function.h"
 #include "src/BluetoothFunction/BluetoothFunction.h"
 #include "src/PIDHeatController/PIDHeatController.h"
 #include "src/PWMController/PWMController.h"
-#include "src/INA228/INA.h"
+// #include "src/INA228/INA.h"
 #include "src/Sensors.h"
 
 /* ----------------------------------- IO ----------------------------------- */
@@ -41,6 +40,11 @@ bool mcp_alive;
 
 Adafruit_AHTX0 aht;
 bool aht_alive;
+
+Adafruit_INA228 ina1 = Adafruit_INA228();
+bool ina1_alive;
+Adafruit_INA228 ina2 = Adafruit_INA228();
+bool ina2_alive;
 
 uint64_t lastPID = 0;
 uint64_t lastTime = 0;
@@ -68,19 +72,19 @@ void readCore() {
     while (true) {      
 
         // AHT30 sensor 1
-        std::tuple<float, uint8_t, bool> sensorData = readAht30();
-        float temperature = std::get<0>(sensorData);
-        uint8_t humidity = std::get<1>(sensorData);
-        bool success = std::get<2>(sensorData);
+        AHT_Data_Return sensorData = readAht30();
+        // float temperature = std::get<0>(sensorData);
+        // uint8_t humidity = std::get<1>(sensorData);
+        // bool success = std::get<2>(sensorData);
 
-        if (success) {
-            writeDataToBuffer("TempIns", temperature);
-            writeDataToBuffer("Humidity", (float)humidity);
-        }
+        // if (success) {
+        //     writeDataToBuffer("TempIns", temperature);
+        //     writeDataToBuffer("Humidity", (float)humidity);
+        // }
 
-        if (millis() - lastPID < 1000) {
-            temp1sec = temperature;
-        }
+        // if (millis() - lastPID < 1000) {
+        //     temp1sec = temperature;
+        // }
         
         // MPU6050 sensor
         //% sensors_event_t a, g, temp;
@@ -113,11 +117,11 @@ void readCore() {
         // }
 
         // INA 228 High Voltage
-        std::tuple<float, float> ina228Data = ReadINA228();
-        float current = std::get<0>(ina228Data);
-        float voltage = std::get<1>(ina228Data);
-        writeDataToBuffer("hCurrent", current);
-        writeDataToBuffer("hVoltage", voltage);
+        // std::tuple<float, float> ina228Data = ReadINA228();
+        // float current = std::get<0>(ina228Data);
+        // float voltage = std::get<1>(ina228Data);
+        // writeDataToBuffer("hCurrent", current);
+        // writeDataToBuffer("hVoltage", voltage);
 
 
 
@@ -246,7 +250,7 @@ int attempt_init_bmp390(Adafruit_BMP3XX *bmp, int address, int current_attempt =
     if (current_attempt > MAX_INIT_ATTEMPTS) {
         return 0;
     }
-    Serial.printf("Attempt %d to initialize BMP390 on I2C Address %x\n", current_attempt, address);
+    Serial.printf("Attempt %d to initialize BMP390 on I2C Address 0x%x\n", current_attempt, address);
 
     if (!bmp->begin_I2C(address)) {
         return attempt_init_bmp390(bmp, address, current_attempt+1);
@@ -277,6 +281,42 @@ int attempt_init_aht30(int current_attempt = 1) {
     }
     return 1;
 }
+int attempt_init_mutex(int current_attempt = 1) {
+    if (current_attempt > MAX_INIT_ATTEMPTS) {
+        return 0;
+    }
+    Serial.printf("Attempt %d to initialize mutex\n", current_attempt);
+
+    logMutex = xSemaphoreCreateMutex();
+    if (logMutex == NULL) {
+        return attempt_init_mutex(current_attempt+1);
+    }
+    return 1;
+}
+int attempt_init_sdreader(int current_attempt = 1) {
+    if (current_attempt > MAX_INIT_ATTEMPTS) {
+        return 0;
+    }
+    Serial.printf("Attempt %d to initialize SD Card Reader\n", current_attempt);
+
+    if (!initSDCard()) {
+        // delay(1000); // maybe give it some time
+        return attempt_init_sdreader(current_attempt+1);
+    }
+    return 1;
+}
+int attempt_init_ina228(Adafruit_INA228 *ina, int address, int current_attempt = 1) {
+    if (current_attempt > MAX_INIT_ATTEMPTS) {
+        return 0;
+    }
+    Serial.printf("Attempt %d to initialize INA228 on I2C Address 0x%x\n", current_attempt, address);
+
+    if (!ina->begin(address)) {
+        return attempt_init_ina228(ina, address, current_attempt+1);
+    }
+    ina->setShunt(0.015, 10.0);
+    return 1;
+}
 
 void setup() {
     Serial.begin(115200);
@@ -286,32 +326,55 @@ void setup() {
         delay(100);
     }
 
+    // Initialize Mutex
+    // if (attempt_init_mutex()) {
+    //     Serial.println("Mutex Initialized\n");
+    // } else {
+    //     Serial.println("Failed to create mutex\n");
+    //     ESP.restart();
+    // }
+
+    // // Initialize SD card
+    // if (sdReady = attempt_init_sdreader()) {
+    //     Serial.println("SD Card Reader Initialized\n");
+    // } else {
+    //     Serial.println("Failed to initialize SD Card Reader\n");
+    // }
+
+    // // Initialize rockblock buffer
+    // if (!initRockblockBuffer()) {
+    //     Serial.println("Failed to initialize rockblock buffer");
+    //     while (true) {
+    //         delay(1000);
+    //     }
+    // }
+
     // randomSeed((uint32_t)esp_random());
 
     /* ---------------------------------- inits --------------------------------- */
 
     // Initialize AHT30 Temperature sensor
 
-    if (aht_alive = attempt_init_aht30()) {
-        Serial.println("AHT30 Initialized\n");
-    } else {
-        Serial.println("Failed to initialize AHT30 sensor\n");
-    }
+    // if (aht_alive = attempt_init_aht30()) {
+    //     Serial.println("AHT30 Initialized\n");
+    // } else {
+    //     Serial.println("Failed to initialize AHT30 sensor\n");
+    // }
 
-    // Initialize FXOS8700/FXAS21002 sensor
-    if(fxos_fxas_alive = (attempt_init_fxos8700() && attempt_init_fxas21002())) {
-        Serial.println("FXOS8700/FXAS21002 Initialized\n");
-    } else {
-        Serial.println("Failed to initialize FXOS8700/FXAS21002 sensor\n");
-        madgwick.begin(100);
-    }
+    // // Initialize FXOS8700/FXAS21002 sensor
+    // if(fxos_fxas_alive = (attempt_init_fxos8700() && attempt_init_fxas21002())) {
+    //     Serial.println("FXOS8700/FXAS21002 Initialized\n");
+    // } else {
+    //     Serial.println("Failed to initialize FXOS8700/FXAS21002 sensor\n");
+    //     madgwick.begin(100);
+    // }
 
-    // Initialize BMP390 Pressure sensor
-    if (bmp_outside_alive = attempt_init_bmp390(&bmp_outside, 0x77)) { // outside temp/pres
-        Serial.println("Outside BMP390 on I2C Address 0x77 Initialized\n");
-    } else {
-        Serial.println("Could not find a valid outside BMP sensor, check wiring!\n");
-    }
+    // // Initialize BMP390 Pressure sensor
+    // if (bmp_outside_alive = attempt_init_bmp390(&bmp_outside, 0x77)) { // outside temp/pres
+    //     Serial.println("Outside BMP390 on I2C Address 0x77 Initialized\n");
+    // } else {
+    //     Serial.println("Could not find a valid outside BMP sensor, check wiring!\n");
+    // }
 
     if (bmp_inside_alive = attempt_init_bmp390(&bmp_inside, 0x76)) { // inside temp/pres
         Serial.println("Inside BMP390 on I2C Address 0x76 Initialized\n");
@@ -319,44 +382,38 @@ void setup() {
         Serial.println("Could not find a valid inside BMP sensor, check wiring!\n");
     }
 
-    if (mcp_alive = attempt_init_mcp9808()) {
-        Serial.println("MCP9808 Initialized\n");
+    // if (mcp_alive = attempt_init_mcp9808()) {
+    //     Serial.println("MCP9808 Initialized\n");
+    // } else {
+    //     Serial.println("Failed to initialize MCP9808 sensor\n");
+    // }
+
+    // high voltate: 0x40
+    // low voltage: 0x41
+
+    // Wire.beginTransmission(0x44);
+    // if (Wire.endTransmission() != 0) {
+    //     Serial.println("0x44 not responding to ping!");
+    // } else {
+    //     Serial.println("0x44 acknowledged address.");
+    // }
+    // delay(500);
+    // if (ina1_alive = attempt_init_ina228(&ina1, 0x44)) {
+    //     Serial.println("INA228 #1 Initialized\n");
+    // } else {
+    //     Serial.println("Failed to initialize INA228 sensor\n");
+    // }
+    if (ina1_alive = attempt_init_ina228(&ina1, 0x44)) {
+        Serial.println("INA228 #1 Initialized\n");
     } else {
-        Serial.println("Failed to initialize MCP9808 sensor\n");
+        Serial.println("Failed to initialize INA228 #1 sensor\n");
     }
-
-    // Initialize Mutex
-
-    logMutex = xSemaphoreCreateMutex(); 
-    if (logMutex == NULL) {
-        Serial.println("Failed to create mutex");
-        while (true) {
-            delay(1000);
-        }
+    if (ina1_alive = attempt_init_ina228(&ina1, 0x41)) {
+        Serial.println("INA228 #1 Initialized\n");
+    } else {
+        Serial.println("Failed to initialize INA228 #1 sensor\n");
     }
-
-    // Initialize SD card
-    
-    sdReady = initSDCard();
-    if (!sdReady) {
-        Serial.println("Failed to initialize SD card");
-        while (true) {
-            delay(1000);
-        }
-    }
-
-    // Initialize rockblock buffer
-
-    if (!initRockblockBuffer()) {
-        Serial.println("Failed to initialize rockblock buffer");
-        while (true) {
-            delay(1000);
-        }
-    }
-
-    // Initialize INA228 sensor
-    initializeINA228();
-
+    for (;;);
 
     // Initialize PID controller
     PWMSetup();

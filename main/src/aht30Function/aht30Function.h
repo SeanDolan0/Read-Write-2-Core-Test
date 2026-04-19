@@ -2,8 +2,12 @@
 
 #include <Arduino.h>
 
-float temperature;
-uint8_t humidity;
+extern Adafruit_AHTX0 aht;
+extern bool aht_alive;
 
-bool initAht30();
-std::tuple<float, uint8_t, bool> readAht30();
+typedef struct {
+    float temperature;
+    uint8_t humidity;
+    bool read_flag;
+} AHT_Data_Return;
+AHT_Data_Return readAht30();
