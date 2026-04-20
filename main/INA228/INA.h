@@ -4,8 +4,6 @@
 #include <BluetoothSerial.h>
 #include <Adafruit_INA228.h>
 
-extern BluetoothSerial SerialBT;
-
 typedef struct {
     float current;
     float busVoltage;

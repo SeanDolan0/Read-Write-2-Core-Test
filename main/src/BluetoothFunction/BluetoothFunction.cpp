@@ -36,7 +36,7 @@ void connectionStatus(esp_spp_cb_event_t event, esp_spp_cb_param_t *param) {
         Serial.printf("[BT] srv_open status=%d handle=%lu\n", (int)param->srv_open.status, (unsigned long)param->srv_open.handle);
         if (param->srv_open.status == ESP_SPP_SUCCESS) {
             isConnected = true;
-            Serial.println("Client connected");
+            // Serial.println("Client connected");
         }
     } else if (event == ESP_SPP_CLOSE_EVT) {
         isConnected = false;
