@@ -406,7 +406,7 @@ void setup() {
 
     // Initialize Bluetooth after blocking setup work to avoid early session drops.
     
-    for (;;); // TODO: stall for now but please for the love of god fix the bt🙏
+    // for (;;); // TODO: stall for now but please for the love of god fix the bt🙏
     initBluetooth();
 
     /* --------------------------- Create pinned tasks -------------------------- */

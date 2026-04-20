@@ -5,9 +5,32 @@
 BluetoothSerial SerialBT;
 bool isConnected = false;
 
+static const char* sppEventToString(esp_spp_cb_event_t event) {
+    switch (event) {
+        case ESP_SPP_INIT_EVT: return "INIT";
+        case ESP_SPP_DISCOVERY_COMP_EVT: return "DISCOVERY_COMP";
+        case ESP_SPP_OPEN_EVT: return "OPEN";
+        case ESP_SPP_CLOSE_EVT: return "CLOSE";
+        case ESP_SPP_START_EVT: return "START";
+        case ESP_SPP_CL_INIT_EVT: return "CL_INIT";
+        case ESP_SPP_DATA_IND_EVT: return "DATA_IND";
+        case ESP_SPP_CONG_EVT: return "CONG";
+        case ESP_SPP_WRITE_EVT: return "WRITE";
+        case ESP_SPP_SRV_OPEN_EVT: return "SRV_OPEN";
+        case ESP_SPP_SRV_STOP_EVT: return "SRV_STOP";
+        case ESP_SPP_UNINIT_EVT: return "UNINIT";
+        default: return "UNKNOWN";
+    }
+}
+
 
 void connectionStatus(esp_spp_cb_event_t event, esp_spp_cb_param_t *param) {
-    Serial.printf("[BT] event=%d (%s)\n", (int)event, event);
+    Serial.printf("[BT] event=%d (%s)\n", (int)event, sppEventToString(event));
+
+    if (param == nullptr) {
+        Serial.println("[BT] callback param is null");
+        return;
+    }
     
     if (event == ESP_SPP_SRV_OPEN_EVT) {
         Serial.printf("[BT] srv_open status=%d handle=%lu\n", (int)param->srv_open.status, (unsigned long)param->srv_open.handle);
