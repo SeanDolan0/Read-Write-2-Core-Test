@@ -327,19 +327,19 @@ void setup() {
     }
 
     // Initialize Mutex
-    // if (attempt_init_mutex()) {
-    //     Serial.println("Mutex Initialized\n");
-    // } else {
-    //     Serial.println("Failed to create mutex\n");
-    //     ESP.restart();
-    // }
+    if (attempt_init_mutex()) {
+        Serial.println("Mutex Initialized\n");
+    } else {
+        Serial.println("Failed to create mutex\n");
+        ESP.restart();
+    }
 
     // // Initialize SD card
-    // if (sdReady = attempt_init_sdreader()) {
-    //     Serial.println("SD Card Reader Initialized\n");
-    // } else {
-    //     Serial.println("Failed to initialize SD Card Reader\n");
-    // }
+    if (sdReady = attempt_init_sdreader()) {
+        Serial.println("SD Card Reader Initialized\n");
+    } else {
+        Serial.println("Failed to initialize SD Card Reader\n");
+    }
 
     // // Initialize rockblock buffer
     // if (!initRockblockBuffer()) {
@@ -354,20 +354,19 @@ void setup() {
     /* ---------------------------------- inits --------------------------------- */
 
     // Initialize AHT30 Temperature sensor
-
-    // if (aht_alive = attempt_init_aht30()) {
-    //     Serial.println("AHT30 Initialized\n");
-    // } else {
-    //     Serial.println("Failed to initialize AHT30 sensor\n");
-    // }
+    if (aht_alive = attempt_init_aht30()) {
+        Serial.println("AHT30 Initialized\n");
+    } else {
+        Serial.println("Failed to initialize AHT30 sensor\n");
+    }
 
     // // Initialize FXOS8700/FXAS21002 sensor
-    // if(fxos_fxas_alive = (attempt_init_fxos8700() && attempt_init_fxas21002())) {
-    //     Serial.println("FXOS8700/FXAS21002 Initialized\n");
-    // } else {
-    //     Serial.println("Failed to initialize FXOS8700/FXAS21002 sensor\n");
-    //     madgwick.begin(100);
-    // }
+    if(fxos_fxas_alive = (attempt_init_fxos8700() && attempt_init_fxas21002())) {
+        Serial.println("FXOS8700/FXAS21002 Initialized\n");
+    } else {
+        Serial.println("Failed to initialize FXOS8700/FXAS21002 sensor\n");
+        madgwick.begin(100);
+    }
 
     // // Initialize BMP390 Pressure sensor
     // if (bmp_outside_alive = attempt_init_bmp390(&bmp_outside, 0x77)) { // outside temp/pres
@@ -390,37 +389,24 @@ void setup() {
 
     // high voltate: 0x40
     // low voltage: 0x41
-
-    // Wire.beginTransmission(0x44);
-    // if (Wire.endTransmission() != 0) {
-    //     Serial.println("0x44 not responding to ping!");
-    // } else {
-    //     Serial.println("0x44 acknowledged address.");
-    // }
-    // delay(500);
-    // if (ina1_alive = attempt_init_ina228(&ina1, 0x44)) {
-    //     Serial.println("INA228 #1 Initialized\n");
-    // } else {
-    //     Serial.println("Failed to initialize INA228 sensor\n");
-    // }
-    if (ina1_alive = attempt_init_ina228(&ina1, 0x44)) {
-        Serial.println("INA228 #1 Initialized\n");
-    } else {
-        Serial.println("Failed to initialize INA228 #1 sensor\n");
-    }
     if (ina1_alive = attempt_init_ina228(&ina1, 0x41)) {
         Serial.println("INA228 #1 Initialized\n");
     } else {
-        Serial.println("Failed to initialize INA228 #1 sensor\n");
+        Serial.println("Failed to initialize INA228 sensor\n");
     }
-    for (;;);
+    if (ina2_alive = attempt_init_ina228(&ina2, 0x40)) {
+        Serial.println("INA228 #2 Initialized\n");
+    } else {
+        Serial.println("Failed to initialize INA228 #2 sensor\n");
+    }
+    // for (;;);
 
     // Initialize PID controller
     PWMSetup();
 
-
     // Initialize Bluetooth after blocking setup work to avoid early session drops.
     
+    for (;;); // TODO: stall for now but please for the love of god fix the bt🙏
     initBluetooth();
 
     /* --------------------------- Create pinned tasks -------------------------- */
