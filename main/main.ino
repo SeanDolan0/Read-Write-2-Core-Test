@@ -41,10 +41,11 @@ bool mcp_alive;
 Adafruit_AHTX0 aht;
 bool aht_alive;
 
-Adafruit_INA228 ina1 = Adafruit_INA228();
-bool ina1_alive;
-Adafruit_INA228 ina2 = Adafruit_INA228();
-bool ina2_alive;
+// TODO: make these correspond correctly
+Adafruit_INA228 ina_low = Adafruit_INA228();
+bool ina_low_alive;
+Adafruit_INA228 ina_high = Adafruit_INA219();
+bool ina_high_alive;
 
 uint64_t lastPID = 0;
 uint64_t lastTime = 0;
@@ -361,7 +362,7 @@ void setup() {
     }
 
     // // Initialize FXOS8700/FXAS21002 sensor
-    if(fxos_fxas_alive = (attempt_init_fxos8700() && attempt_init_fxas21002())) {
+    if (fxos_fxas_alive = (attempt_init_fxos8700() && attempt_init_fxas21002())) {
         Serial.println("FXOS8700/FXAS21002 Initialized\n");
     } else {
         Serial.println("Failed to initialize FXOS8700/FXAS21002 sensor\n");
