@@ -8,6 +8,6 @@ extern bool aht_alive;
 typedef struct {
     float temperature;
     float humidity;
-    bool read_flag;
+    bool success;
 } AHT_Data_Return;
 AHT_Data_Return readAht30();

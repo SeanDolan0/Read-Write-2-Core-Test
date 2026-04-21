@@ -2,6 +2,7 @@
 
 #include <Adafruit_AHTX0.h>
 #include "src/aht30Function/aht30Function.h"
+#include "src/Sensors.h"
 
 AHT_Data_Return readAht30() {
   if (!aht_alive) return {0};
@@ -13,6 +14,6 @@ AHT_Data_Return readAht30() {
   return (AHT_Data_Return){
     .temperature = temp.temperature,
     .humidity = humidity.relative_humidity,
-    .read_flag = true,
+    .success = true,
   };
 }

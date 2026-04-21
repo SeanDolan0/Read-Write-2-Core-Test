@@ -11,5 +11,5 @@ typedef enum {
     SDFailure,
 } LineoutReturn;
 
-LineoutReturn lineout(const char *output);
+LineoutReturn lineout(const char *output, bool trailing_newline = true);
 LineoutReturn lineoutPrintf(const char *format, ...);

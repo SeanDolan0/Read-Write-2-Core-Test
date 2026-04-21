@@ -1,16 +1,27 @@
 #include "src/log_wrapper/log_wrapper.h"
 #include <Arduino.h>
 
-LineoutReturn lineout(const char *output) {
+LineoutReturn lineout(const char *output, bool trailing_newline) {
     LineoutReturn code = LineoutReturn::Success;
 
-    if (Serial.println(output) == 0) {
-        code = LineoutReturn::SerialFailure;
-        SerialBT.println("Serial sucks");
+    if (trailing_newline) {
+        if (Serial.println(output) == 0) {
+            code = LineoutReturn::SerialFailure;
+        }
+    } else {
+        if (Serial.print(output) == 0) {
+            code = LineoutReturn::SerialFailure;
+        }
     }
 
-    if (SerialBT.println(output) == 0) {
-        code = LineoutReturn::SerialBTFailure;
+    if (trailing_newline) {
+        if (SerialBT.println(output) == 0) {
+            code = LineoutReturn::SerialFailure;
+        }
+    } else {
+        if (SerialBT.print(output) == 0) {
+            code = LineoutReturn::SerialFailure;
+        }
     }
 
     // if (!) {}
@@ -25,16 +36,5 @@ LineoutReturn lineoutPrintf(const char *format, ...) {
     vsnprintf(buffer, sizeof(buffer), format, args);
     va_end(args);
 
-    LineoutReturn code = LineoutReturn::Success;
-
-    if (Serial.print(buffer) == 0) {
-        code = LineoutReturn::SerialFailure;
-    }
-
-    if (SerialBT.print(buffer) == 0) {
-        SerialBT.println("couldnt do it :(");
-        code = LineoutReturn::SerialBTFailure;
-    }
-
-    return code;
+    return lineout(buffer, false);
 }

@@ -3,6 +3,7 @@
 #include <SPI.h>
 #include "src/RockblockFunction/RockblockFunction.h"
 #include "src/SdFunction/SdFunction.h"
+#include "src/log_wrapper/log_wrapper.h"
 #include "src/Sensors.h"
 
 #define SD_CS_PIN 5
@@ -21,8 +22,15 @@ static Table* rockblockTable = NULL;
 static uint32_t lastRockblockSendTime = 0;
 
 bool initRockblockBuffer() {
+    lineoutPrintf("Attempting to allocate: %zu\nFree heap: %zu\n", CSV_LOG_BUFFER_SIZE * sizeof(char), ESP.getFreeHeap());
     csvLogBuffer = (char*)malloc(CSV_LOG_BUFFER_SIZE * sizeof(char)); // shouldn't require the sizeof part but you never know with these things
     logBufferlen = 0;
+    if (csvLogBuffer != NULL) {
+        lineoutPrintf("Memory for RockBlock Buffer allocated at 0x%p\n", csvLogBuffer);
+    } else {
+        lineout("Failed to allocate memory for csvLogBuffer");
+        return false;
+    }
 
     if (!rockblockTable) {
         rockblockTable = new_table();
@@ -120,22 +128,23 @@ bool LogWriteBuffer() { // Write log buffer to SD card and clear buffer
 
 
 void writeDataToBuffer(const char* name, float value) { // Write data to log buffer
-    if (rockblockTable) {
-        
-        int index = -1;
-        for (int i = 0; i < NUM_SENSORS; i++) {
-            if (strcmp(name, CSV_COLUMNS[i]) == 0) {
-                index = i;
-                break;
-            }
-        }
+    // lineoutPrintf("RBT: %p\n", rockblockTable);
+    // if (rockblockTable) {
+    //     
+    //     int index = -1;
+    //     for (int i = 0; i < NUM_SENSORS; i++) {
+    //         if (strcmp(name, CSV_COLUMNS[i]) == 0) {
+    //             index = i;
+    //             break;
+    //         }
+    //     }
 
-        if (table_memsize(rockblockTable) + sizeof(TableEntry) + 2 <= 340 && index != -1) { // Check if adding this entry would exceed the 340 byte SBD limit (with some buffer for metadata)
-            add_entry(rockblockTable, (TableEntry){ .time = millis(), .type = (SensorDataType)index, .data = value, });
-        } else if (index == -1) {
-            Serial.println("Unknown sensor name, not adding to rockblock buffer value for " + String(name)); 
-        }
-    }
+    //     if (table_memsize(rockblockTable) + sizeof(TableEntry) + 2 <= 340 && index != -1) { // Check if adding this entry would exceed the 340 byte SBD limit (with some buffer for metadata)
+    //         add_entry(rockblockTable, (TableEntry){ .time = millis(), .type = (SensorDataType)index, .data = value, });
+    //     } else if (index == -1) {
+    //         lineoutPrintf("Unknown sensor name, not adding to rockblock buffer value for %s\n", name); 
+    //     }
+    // }
 
     for (int i = 0; i < NUM_SENSORS; i++) { 
         if (strcmp(name, CSV_COLUMNS[i]) == 0) { 
@@ -147,7 +156,7 @@ void writeDataToBuffer(const char* name, float value) { // Write data to log buf
                 if (j == i) {
                     int written = snprintf(entry + pos, sizeof(entry) - pos, ",%.2f", value);
                     if (written < 0 || pos + written >= (int)sizeof(entry)) { 
-                        Serial.println("Failed to format CSV row");
+                        lineout("Failed to format CSV row");
                         return;
                     }
                     pos += written;
@@ -160,22 +169,23 @@ void writeDataToBuffer(const char* name, float value) { // Write data to log buf
             // Mutex Error Handling and Buffer Management
 
             if (xSemaphoreTake(logMutex, pdMS_TO_TICKS(MUTEX_TIMEOUT_MS)) != pdTRUE) {
-                Serial.println("Failed to lock log mutex");
+                lineout("Failed to lock log mutex");
                 return;
             }
 
             if (logBufferlen + pos >= CSV_LOG_BUFFER_SIZE) {
-                Serial.println("Log buffer overflow, flushing to SD");
+                lineout("Log buffer overflow, flushing to SD");
                 xSemaphoreGive(logMutex);
                 if (!LogWriteBuffer()) {
                     return;
                 }
                 if (xSemaphoreTake(logMutex, pdMS_TO_TICKS(MUTEX_TIMEOUT_MS)) != pdTRUE) {
-                    Serial.println("Failed to re-lock log mutex");
+                    lineout("Failed to re-lock log mutex");
                     return;
                 }
             }
 
+            // lineoutPrintf("csvLogBuffer: %p\nlogBufferlen: %zu\n", csvLogBuffer, logBufferlen);
             memcpy(csvLogBuffer + logBufferlen, entry, pos); // Append new entry to log buffer
             logBufferlen += pos;
 
