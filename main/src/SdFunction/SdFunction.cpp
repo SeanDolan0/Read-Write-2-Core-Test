@@ -177,7 +177,7 @@ void writeDataToBuffer(const char* name, float value) { // Write data to log buf
                 lineout("Log buffer overflow, flushing to SD");
                 xSemaphoreGive(logMutex);
                 if (!LogWriteBuffer()) {
-                    lineout("Failed to write to log buffer")
+                    lineout("Failed to write to log buffer");
                     return;
                 }
                 if (xSemaphoreTake(logMutex, pdMS_TO_TICKS(MUTEX_TIMEOUT_MS)) != pdTRUE) {
