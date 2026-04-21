@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include <SD.h>
+// #include <SD.h>
 #include <SPI.h>
 #include "src/RockblockFunction/RockblockFunction.h"
 #include "src/SdFunction/SdFunction.h"
@@ -8,6 +8,8 @@
 
 #define SD_CS_PIN 5
 #define MUTEX_TIMEOUT_MS 5000
+
+SdFs sd;
 
 const uint32_t WRITE_INTERVAL_MS = 5000; // 5 seconds
 const char* CSV_FILE_PATH = "/sensor_log.csv";
@@ -56,28 +58,31 @@ bool sendRockblockBuffer() {
 }
 
 bool initSDCard() { // Init SD card and create CSV file with header if it doesn't exist
-
-    // SD Card Initialization
-    if (!SD.begin(SD_CS_PIN)) {
-        lineout("Card Mount Failed");
-        return false;
-    }
-
     for (size_t i = 0; i < SensorDataType::SENSOR_COUNT; i++) {
         CSV_COLUMNS[i] = get_sensor_name((SensorDataType)i);
     }
 
-    uint64_t cardSize = SD.cardSize() / (1000 * 1000 * 1000);
+    // SD Card Initialization
+    if (!sd.begin(SD_CS_PIN, SD_SCK_MHZ(4))) {
+        lineout("Card Mount Failed");
+        lineoutPrintf("Reason: %x (%x)\n", (int)sd.card()->errorCode(), (int)sd.card()->errorData());
+        return false;
+    }
+
+    uint64_t sectors = sd.card()->sectorCount();
+    uint64_t cardSize = (sectors * 512) / (1000 * 1000 * 1000);
     lineoutPrintf("SD Card Size: %lluGB\n", cardSize);
 
 
     // CSV Creation
-    if (!SD.exists(CSV_FILE_PATH)) {
-        File headerFile = SD.open(CSV_FILE_PATH, FILE_WRITE);
+    if (!sd.exists(CSV_FILE_PATH)) {
+        File headerFile = sd.open(CSV_FILE_PATH, O_RDWR | O_CREAT | O_AT_END);
+
         if (!headerFile) {
             lineout("Failed to create CSV file");
             return false;
         }
+
         headerFile.print("timestamp_ms");
         for (int i = 0; i < NUM_SENSORS; i++) {
             headerFile.print(",");
@@ -102,21 +107,22 @@ bool LogWriteBuffer() { // Write log buffer to SD card and clear buffer
         return false;
     }
 
-    File logFile = SD.open(CSV_FILE_PATH, FILE_APPEND);
+    FsFile logFile = sd.open(CSV_FILE_PATH, O_RDWR | O_APPEND);
     if (!logFile) {
-        lineout("Failed to open CSV file");
+        lineoutPrintf("Failed to open CSV file: %x\n", (int)sd.card()->errorCode());
         xSemaphoreGive(logMutex);
         return false;
     }
 
-    size_t bytesWritten = logFile.write((const uint8_t*)csvLogBuffer, logBufferlen);
+    size_t bytesWritten = logFile.write((const uint8_t *)csvLogBuffer, logBufferlen);
     logFile.close();
 
     if (bytesWritten != logBufferlen) {
-        lineout("partial write to CSV file");
+        lineoutPrintf("partial write to CSV file (%zu bytes instead of %zu)\n", bytesWritten, logBufferlen);
         xSemaphoreGive(logMutex);
         return false;
     }
+    lineoutPrintf("wrote %zu bytes to sd card from buffer of size %zu\n", bytesWritten, logBufferlen);
 
     // Clear the buffer while holding the mutex to avoid races with writers.
     logBufferlen = 0;
@@ -147,8 +153,11 @@ void writeDataToBuffer(const char* name, float value) { // Write data to log buf
     //     }
     // }
 
+    if (sd.fatType() == 0) return; // card not initialized
     for (int i = 0; i < NUM_SENSORS; i++) { 
+        // Serial.printf("comparing name '%s' to column '%s'\n", name, CSV_COLUMNS[i]);
         if (strcmp(name, CSV_COLUMNS[i]) == 0) { 
+            // for (;;);
             char entry[64];
 
             int pos = snprintf(entry, sizeof(entry), "%u", millis()); 
@@ -179,6 +188,10 @@ void writeDataToBuffer(const char* name, float value) { // Write data to log buf
                 xSemaphoreGive(logMutex);
                 if (!LogWriteBuffer()) {
                     lineout("Failed to write to log buffer");
+                    Serial.print("Write Error! SD Error Code: ");
+                    Serial.println((int)sd.card()->errorCode(), HEX);
+                    Serial.print("SD Error Data: ");
+                    Serial.println((int)sd.card()->errorData(), HEX);
                     return;
                 }
                 if (xSemaphoreTake(logMutex, pdMS_TO_TICKS(MUTEX_TIMEOUT_MS)) != pdTRUE) {

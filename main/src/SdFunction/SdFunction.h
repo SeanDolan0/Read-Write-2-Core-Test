@@ -1,8 +1,12 @@
 #pragma once
 
+#include "SdFat.h"
+
 #include <Arduino.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
+
+extern SdFs sd;
 
 extern SemaphoreHandle_t logMutex;
 
