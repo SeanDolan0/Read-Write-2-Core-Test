@@ -250,6 +250,9 @@ void writeCore() {
           targetTemperature = parsed;
           lineout("Updated target temperature: ");
           lineout(std::to_string(targetTemperature).c_str());
+        } else if (command == "debugbt") {
+          bluetooth_debug_info = parsed == 1;
+          lineoutPrintf("Updated bluetooth_debug_info: %s\n", bluetooth_debug_info ? "true" : "false");
         } else if (command == "disable") {
           btStop();
           lineout("Bluetooth disabled");

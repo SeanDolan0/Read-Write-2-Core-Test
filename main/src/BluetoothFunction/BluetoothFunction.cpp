@@ -3,6 +3,8 @@
 #include "BluetoothSerial.h"
 #include "src/log_wrapper/log_wrapper.h"
 
+bool bluetooth_debug_info = 0;
+
 BluetoothSerial SerialBT;
 bool isConnected = false;
 
@@ -26,6 +28,7 @@ static const char* sppEventToString(esp_spp_cb_event_t event) {
 
 
 void connectionStatus(esp_spp_cb_event_t event, esp_spp_cb_param_t *param) {
+    if (!bluetooth_debug_info) return;
     lineoutPrintf("[BT] event=%d (%s)\n", (int)event, sppEventToString(event));
 
     if (param == nullptr) {
