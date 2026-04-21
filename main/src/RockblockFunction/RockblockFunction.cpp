@@ -1,7 +1,8 @@
 // code courtesy of https://github.com/HogeyDev with slight modifications
 
 #include "RockblockFunction.h"
-#include "../Sensors.h"
+#include "src/log_wrapper/log_wrapper.h"
+#include "src/Sensors.h"
 
 IridiumSBD IridiumModem(Serial1);
 
@@ -117,7 +118,7 @@ void send_table(Table *t) {
 
     size_t size = table_memsize(t);
 
-    Serial.printf("Sending table with %u entries, size %u bytes\n", t->size, size);
+    lineoutPrintf("Sending table with %u entries, size %u bytes\n", t->size, size);
 
     // int status = IridiumModem.sendSBDBinary((uint8_t *)st, size);
 

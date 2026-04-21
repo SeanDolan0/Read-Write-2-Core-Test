@@ -59,7 +59,7 @@ bool initSDCard() { // Init SD card and create CSV file with header if it doesn'
 
     // SD Card Initialization
     if (!SD.begin(SD_CS_PIN)) {
-        Serial.println("Card Mount Failed");
+        lineout("Card Mount Failed");
         return false;
     }
 
@@ -68,14 +68,14 @@ bool initSDCard() { // Init SD card and create CSV file with header if it doesn'
     }
 
     uint64_t cardSize = SD.cardSize() / (1000 * 1000 * 1000);
-    Serial.printf("SD Card Size: %lluGB\n", cardSize);
+    lineoutPrintf("SD Card Size: %lluGB\n", cardSize);
 
 
     // CSV Creation
     if (!SD.exists(CSV_FILE_PATH)) {
         File headerFile = SD.open(CSV_FILE_PATH, FILE_WRITE);
         if (!headerFile) {
-            Serial.println("Failed to create CSV file");
+            lineout("Failed to create CSV file");
             return false;
         }
         headerFile.print("timestamp_ms");
@@ -97,13 +97,13 @@ bool LogWriteBuffer() { // Write log buffer to SD card and clear buffer
     }
     
     if (xSemaphoreTake(logMutex, pdMS_TO_TICKS(MUTEX_TIMEOUT_MS)) != pdTRUE) {
-        Serial.println("Failed to lock log mutex");
+        lineout("Failed to lock log mutex");
         return false;
     }
 
     File logFile = SD.open(CSV_FILE_PATH, FILE_APPEND);
     if (!logFile) {
-        Serial.println("Failed to open CSV file");
+        lineout("Failed to open CSV file");
         xSemaphoreGive(logMutex);
         return false;
     }
@@ -112,7 +112,7 @@ bool LogWriteBuffer() { // Write log buffer to SD card and clear buffer
     logFile.close();
 
     if (bytesWritten != logBufferlen) {
-        Serial.println("partial write to CSV file");
+        lineout("partial write to CSV file");
         xSemaphoreGive(logMutex);
         return false;
     }
@@ -121,7 +121,7 @@ bool LogWriteBuffer() { // Write log buffer to SD card and clear buffer
     logBufferlen = 0;
 
     uint32_t duration = millis() - now;
-    Serial.printf("Wrote %u bytes to SD in %u ms\n", bytesWritten, duration);
+    lineoutPrintf("Wrote %u bytes to SD in %u ms\n", bytesWritten, duration);
     xSemaphoreGive(logMutex);
     return true;
 }
@@ -177,6 +177,7 @@ void writeDataToBuffer(const char* name, float value) { // Write data to log buf
                 lineout("Log buffer overflow, flushing to SD");
                 xSemaphoreGive(logMutex);
                 if (!LogWriteBuffer()) {
+                    lineout("Failed to write to log buffer")
                     return;
                 }
                 if (xSemaphoreTake(logMutex, pdMS_TO_TICKS(MUTEX_TIMEOUT_MS)) != pdTRUE) {
