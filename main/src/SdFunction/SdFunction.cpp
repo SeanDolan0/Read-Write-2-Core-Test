@@ -93,6 +93,7 @@ bool initSDCard() { // Init SD card and create CSV file with header if it doesn'
 bool LogWriteBuffer() { // Write log buffer to SD card and clear buffer
     uint32_t now = millis();
     if (logBufferlen == 0) {
+        lineout("logBufferlen is zero, nothing to write... failing");
         return true;
     }
     
