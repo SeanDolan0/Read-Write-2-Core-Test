@@ -37,6 +37,11 @@ bool mcp_alive;
 bool aht_alive;
 bool ina_low_alive;
 bool ina_high_alive;
+bool pwm_fan_alive;
+bool pwm_heater_alive;
+
+int heaterPin = 13;
+int fanPin = 12;
 
 Adafruit_FXOS8700 fxos = Adafruit_FXOS8700(0x1F);
 Adafruit_FXAS21002C fxas = Adafruit_FXAS21002C(0x0021002C);
@@ -182,54 +187,6 @@ void readCore() {
 
     lineout("");
 
-    // if (success) {
-    //     writeDataToBuffer("TempIns", temperature);
-    //     writeDataToBuffer("Humidity", (float)humidity);
-    // }
-
-    // if (millis() - lastPID < 1000) {
-    //     temp1sec = temperature;
-    // }
-
-    // MPU6050 sensor
-    //% sensors_event_t a, g, temp;
-    //% mpu.getEvent(&a, &g, &temp);
-    //% writeDataToBuffer("MPUTemp", temp.temperature);
-    //% writeDataToBuffer("AccX", a.acceleration.x);
-    //% writeDataToBuffer("AccY", a.acceleration.y);
-    //% writeDataToBuffer("AccZ", a.acceleration.z);
-
-    // FXOS8700/FXAS21002 sensor
-    // sensors_event_t a, m, g;
-    // float mx = m.magnetic.x - mag_offsets[0];
-    // float my = m.magnetic.y - mag_offsets[1];
-    // float mz = m.magnetic.z - mag_offsets[2];
-    // madgwick.update(g.gyro.x * 57.2958, g.gyro.y * 57.2958, g.gyro.z * 57.2958,
-    //                 a.acceleration.x, a.acceleration.y, a.acceleration.z,
-    //                 mx, my, mz);
-    // float roll = filter.getRoll();
-    // float pitch = filter.getPitch();
-    // float yaw = filter.getYaw();
-    // float lin_accel_x = a.acceleration.x - (sin(pitch * 0.0174) * 9.8);
-    // writeDataToBuffer("AccX", lin_accel_x);
-
-    // BMP390 sensor 1
-    // bmp3_data bmp_data = Temp_Presure_Write_To_SD();
-
-    // if (bmp_data.success) {
-    //     writeDataToBuffer("BMP390_temperature", (float)bmp_data.temperature);
-    //     writeDataToBuffer("BMP390_pressure", (float)bmp_data.pressure);
-    // }
-
-    // INA 228 High Voltage
-    // std::tuple<float, float> ina228Data = ReadINA228();
-    // float current = std::get<0>(ina228Data);
-    // float voltage = std::get<1>(ina228Data);
-    // writeDataToBuffer("hCurrent", current);
-    // writeDataToBuffer("hVoltage", voltage);
-
-
-
     delay(100);
   }
 }
@@ -251,6 +208,9 @@ void writeCore() {
     }
     if (now - lastPID >= 1000) {
       float pidOutput = CalculatePID(targetTemperature, temp1sec, 1.0f);
+      ledcWrite(heaterPin, pidOutput);
+      ledcWrite(fanPin, pidOutput); 
+      lineoutPrintf("PID Output: %.2f\n", pidOutput);
       (void)pidOutput;
 
       lastPID = now;
@@ -290,12 +250,6 @@ void writeCore() {
           targetTemperature = parsed;
           lineout("Updated target temperature: ");
           lineout(std::to_string(targetTemperature).c_str());
-        } else if (command == "duty") {
-          dutyCycle = (int)parsed;
-          dutyCycle = constrain(dutyCycle, 0, 255);
-          lineout("Updated duty cycle: ");
-          lineout(std::to_string(dutyCycle).c_str());
-          ledcWrite(ledChannel, dutyCycle);
         } else if (command == "disable") {
           btStop();
           lineout("Bluetooth disabled");
@@ -468,7 +422,7 @@ void setup() {
     ESP.restart();
   }
 
-  // // Initialize SD card
+  // Initialize SD card
   if (sdReady = attempt_init_sdreader()) {
     lineout("SD Card Reader Initialized\n");
   } else {
@@ -493,7 +447,7 @@ void setup() {
     lineout("Failed to initialize AHT30 sensor\n");
   }
 
-  // // Initialize FXOS8700/FXAS21002 sensor
+  // Initialize FXOS8700/FXAS21002 sensor
   if (fxos_fxas_alive = (attempt_init_fxos8700() && attempt_init_fxas21002())) {
     lineout("FXOS8700/FXAS21002 Initialized\n");
   } else {
@@ -532,7 +486,11 @@ void setup() {
   }
 
   // Initialize PID controller
-  PWMSetup();
+  PWMSetup(13, 5000, 8);
+  lineout("PWM Heater Controller Initialized\n");
+
+  PWMSetup(12, 5000, 8);
+  lineout("PWM Fan Controller Initialized\n");
 
   /* --------------------------- Create pinned tasks -------------------------- */
 

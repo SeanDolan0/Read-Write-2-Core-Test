@@ -9,7 +9,7 @@
 #define SD_CS_PIN 5
 #define MUTEX_TIMEOUT_MS 5000
 
-const uint32_t WRITE_INTERVAL_MS = 60000; // 1 minute
+const uint32_t WRITE_INTERVAL_MS = 5000; // 5 seconds
 const char* CSV_FILE_PATH = "/sensor_log.csv";
 uint32_t lastWriteTime = 0;
 bool sdReady = false;
@@ -192,22 +192,5 @@ void writeDataToBuffer(const char* name, float value) { // Write data to log buf
             xSemaphoreGive(logMutex);
             return;
         }
-    }
-}
-
-//temp
-
-static uint32_t nextTempTime = 0;
-static uint32_t nextPressureTime = 0;
-
-void randomSensorData() {
-    uint32_t now = millis();
-    if (now >= nextTempTime) {
-        writeDataToBuffer("ATH30_temperature", random(200, 301) / 10.0f);
-        nextTempTime = now + random(5, 50);
-    }
-    if (now >= nextPressureTime) {
-        writeDataToBuffer("BMP390_pressure", random(9000, 11001) / 10.0f);
-        nextPressureTime = now + random(30, 200);
     }
 }

@@ -24,37 +24,6 @@ extern float kd;
 extern float tragetTemperature;
 extern float maxVal;
 
-/* ---------------------------- Invalid Constants --------------------------- */
-
-constexpr float InvalidTemperature = -512.0f;
-constexpr float InvalidHumidity = -1.0f;
-constexpr float InvalidPressure = -1.0f;
-constexpr float InvalidPosition = std::numeric_limits<float>::infinity();
-
-
-constexpr float const INVALID_RESPONSES[] = { 
-    InvalidTemperature,
-    InvalidTemperature,
-    InvalidTemperature,
-    InvalidTemperature,
-    InvalidTemperature,
-
-    InvalidPressure,
-    InvalidPressure,
- 
-    InvalidHumidity,
-
-    InvalidPosition, 
-    InvalidPosition, 
-
-    InvalidPosition, 
-    InvalidPosition,
-
-    InvalidPosition, InvalidPosition, InvalidPosition,
-    InvalidPosition, InvalidPosition,
-    InvalidPosition, InvalidPosition, InvalidPosition
-}; 
-
 /* ------------------------------ Sensor Names ------------------------------ */
 
 // Sensor count needs to be last

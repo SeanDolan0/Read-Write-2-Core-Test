@@ -1,18 +1,10 @@
 
 #include <Arduino.h>
 #include "src/PWMController/PWMController.h"
+#include "src/log_wrapper/log_wrapper.h"
 
-
-/*
- * ESP32 MOSFET PWM Control via SerialBT Monitor
- * MOSFET: FQP30N06L
- */
-
-void PWMSetup() {
-  // Configure LEDC PWM
+void PWMSetup(int pwmPin, int freq, int resolution)
+{
   ledcAttach(pwmPin, freq, resolution);
-
-  SerialBT.println("--- MOSFET PWM Controller ---");
-  SerialBT.println("Enter a duty cycle value (0-255):");
+  lineoutPrintf("PWM Setup: Pin %d, Frequency %d Hz, Resolution %d bits\n", pwmPin, freq, resolution);
 }
-
