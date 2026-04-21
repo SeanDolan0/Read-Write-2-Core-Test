@@ -92,6 +92,8 @@ inline const char *get_sensor_name(SensorDataType type) {
         "GyroPitch",
         "GyroYaw",
         "GyroLinAccX",
+        "GyroLinAccY",
+        "GyroLinAccZ",
 
         "InsBmpTemp",
         "InsBmpPress",

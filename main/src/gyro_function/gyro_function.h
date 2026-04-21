@@ -15,7 +15,11 @@ typedef struct {
         float pitch;
         float yaw;
     } angle;
-    float linacc_x;
+    struct {
+        float x;
+        float y;
+        float z;
+    } linacc;
     bool success;
 } GyroData;
 

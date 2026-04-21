@@ -28,7 +28,6 @@ GyroData read_fxos_fxas_gyro() {
     // 4. Calculate Linear Acceleration (Position tracking precursor)
     // We must rotate the raw acceleration vector by the inverse of the orientation
     // to remove the 9.8 m/s^2 of gravity.
-    float lin_accel_x = a.acceleration.x - (sin(pitch * 0.0174) * 9.8);
 
     // --- Output ---
     
@@ -38,7 +37,11 @@ GyroData read_fxos_fxas_gyro() {
             .pitch = pitch,
             .yaw = yaw,
         },
-        .linacc_x = lin_accel_x,
+        .linacc = {
+            .x = a.acceleration.x,
+            .y = a.acceleration.y,
+            .z = a.acceleration.z - 9.81,
+        },
         .success = true,
     };
     // Serial.print("ORIENTATION -> Roll: ");

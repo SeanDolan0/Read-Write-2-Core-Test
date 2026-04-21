@@ -108,12 +108,16 @@ void readCore() {
       lineoutPrintf("Roll: %.2f\n", gyro_data.angle.roll);
       lineoutPrintf("Pitch: %.2f\n", gyro_data.angle.pitch);
       lineoutPrintf("Yaw: %.2f\n", gyro_data.angle.yaw);
-      lineoutPrintf("Linear X Acceleration: %.2f m/s^2\n", gyro_data.linacc_x);
+      lineoutPrintf("Linear X Acceleration: %.2f m/s^2\n", gyro_data.linacc.x);
+      lineoutPrintf("Linear Y Acceleration: %.2f m/s^2\n", gyro_data.linacc.y);
+      lineoutPrintf("Linear Z Acceleration: %.2f m/s^2\n", gyro_data.linacc.z);
 
       writeDataToBuffer("GyroRoll", gyro_data.angle.roll);
       writeDataToBuffer("GyroPitch", gyro_data.angle.pitch);
       writeDataToBuffer("GyroYaw", gyro_data.angle.yaw);
-      writeDataToBuffer("GyroLinAccX", gyro_data.linacc_x);
+      writeDataToBuffer("GyroLinAccX", gyro_data.linacc.x);
+      writeDataToBuffer("GyroLinAccY", gyro_data.linacc.y);
+      writeDataToBuffer("GyroLinAccZ", gyro_data.linacc.z);
     } else {
       lineout("Could not read AHT30 data");
     }
@@ -311,6 +315,9 @@ void writeCore() {
           lineoutPrintf("AHT30: %d\n", aht_alive);
           lineoutPrintf("INA228 Low Voltage: %d\n", ina_low_alive);
           lineoutPrintf("INA219 High Voltage: %d\n", mcp_alive);
+        } else if (incoming == "fullreset") {
+          lineout("Restarting ESP32");
+          ESP.restart();
         }
       }
       while (SerialBT.available() > 0) SerialBT.read();
