@@ -11,7 +11,7 @@
 
 SdFs sd;
 
-const uint32_t WRITE_INTERVAL_MS = 5000; // 5 seconds
+const uint32_t WRITE_INTERVAL_MS = 30000; // 30 seconds
 const char* CSV_FILE_PATH = "/sensor_log.csv";
 uint32_t lastWriteTime = 0;
 bool sdReady = false;

@@ -3,28 +3,28 @@
 #include <sstream>
 #include <string>
 
-#include <freertos/FreeRTOS.h>
-#include <Adafruit_BMP3XX.h>
-#include <Adafruit_FXOS8700.h>
-#include <Adafruit_FXAS21002C.h>
-#include <Adafruit_MCP9808.h>
 #include <Adafruit_AHTX0.h>
-#include <Adafruit_INA228.h>
+#include <Adafruit_BMP3XX.h>
+#include <Adafruit_FXAS21002C.h>
+#include <Adafruit_FXOS8700.h>
 #include <Adafruit_INA219.h>
+#include <Adafruit_INA228.h>
+#include <Adafruit_MCP9808.h>
 #include <MadgwickAHRS.h>
+#include <freertos/FreeRTOS.h>
 
-#include "src/SdFunction/SdFunction.h"
-#include "src/RockblockFunction/RockblockFunction.h"
-#include "src/aht30Function/aht30Function.h"
 #include "src/BluetoothFunction/BluetoothFunction.h"
 #include "src/PIDHeatController/PIDHeatController.h"
 #include "src/PWMController/PWMController.h"
-#include "src/log_wrapper/log_wrapper.h"
-#include "src/gyro_function/gyro_function.h"
-#include "src/bmp_function/bmp_function.h"
-#include "src/mcp_function/mcp_function.h"
-#include "src/ina_function/ina_function.h"
+#include "src/RockblockFunction/RockblockFunction.h"
+#include "src/SdFunction/SdFunction.h"
 #include "src/Sensors.h"
+#include "src/aht30Function/aht30Function.h"
+#include "src/bmp_function/bmp_function.h"
+#include "src/gyro_function/gyro_function.h"
+#include "src/ina_function/ina_function.h"
+#include "src/log_wrapper/log_wrapper.h"
+#include "src/mcp_function/mcp_function.h"
 
 /* ----------------------------------- IO ----------------------------------- */
 
@@ -46,7 +46,7 @@ int fanPin = 12;
 Adafruit_FXOS8700 fxos = Adafruit_FXOS8700(0x1F);
 Adafruit_FXAS21002C fxas = Adafruit_FXAS21002C(0x0021002C);
 Madgwick madgwick;
-float mag_offsets[3] = { 0.0, 0.0, 0.0 };
+float mag_offsets[3] = {0.0, 0.0, 0.0};
 
 Adafruit_BMP3XX bmp_outside;
 Adafruit_BMP3XX bmp_inside;
@@ -73,22 +73,21 @@ constexpr BaseType_t WRITE_CORE_ID = 0;
 
 int attempt_init_fxos8700(int current_attempt = 1);
 int attempt_init_fxas21002(int current_attempt = 1);
-int attempt_init_bmp390(Adafruit_BMP3XX *bmp, int address, int current_attempt = 1);
+int attempt_init_bmp390(Adafruit_BMP3XX *bmp, int address,
+                        int current_attempt = 1);
 int attempt_init_mcp9808(int current_attempt = 1);
 int attempt_init_aht30(int current_attempt = 1);
 int attempt_init_mutex(int current_attempt = 1);
 int attempt_init_sdreader(int current_attempt = 1);
-int attempt_init_ina228(Adafruit_INA228 *ina, int address, int current_attempt = 1);
-int attempt_init_ina219(Adafruit_INA219 *ina, int address, int current_attempt = 1);
+int attempt_init_ina228(Adafruit_INA228 *ina, int address,
+                        int current_attempt = 1);
+int attempt_init_ina219(Adafruit_INA219 *ina, int address,
+                        int current_attempt = 1);
 int attempt_init_rockblock_buffer(int current_attempt = 1);
 
-void sensorTask(void *) {
-  readCore();
-}
+void sensorTask(void *) { readCore(); }
 
-void sdWriteTask(void *) {
-  writeCore();
-}
+void sdWriteTask(void *) { writeCore(); }
 
 /* ----------------------------- core processes ----------------------------- */
 
@@ -98,8 +97,8 @@ void readCore() {
     // AHT30 sensor
     AHT_Data_Return aht_data = readAht30();
     if (aht_data.success) {
-      lineoutPrintf("Humidity: %.2f%\n", aht_data.humidity);
-      lineoutPrintf("Temperature: %.2f C\n", aht_data.temperature);
+      lineoutPrintf("Humidity: %.2f%\n", aht_data.humidity, false);
+      lineoutPrintf("Temperature: %.2f C\n", aht_data.temperature, false);
 
       writeDataToBuffer("AhtTemperature", aht_data.temperature);
       writeDataToBuffer("AhtHumidity", aht_data.humidity);
@@ -110,12 +109,15 @@ void readCore() {
     // FXOS8700 / FXAS21002C sensor
     GyroData gyro_data = read_fxos_fxas_gyro();
     if (gyro_data.success) {
-      lineoutPrintf("Roll: %.2f\n", gyro_data.angle.roll);
-      lineoutPrintf("Pitch: %.2f\n", gyro_data.angle.pitch);
-      lineoutPrintf("Yaw: %.2f\n", gyro_data.angle.yaw);
-      lineoutPrintf("Linear X Acceleration: %.2f m/s^2\n", gyro_data.linacc.x);
-      lineoutPrintf("Linear Y Acceleration: %.2f m/s^2\n", gyro_data.linacc.y);
-      lineoutPrintf("Linear Z Acceleration: %.2f m/s^2\n", gyro_data.linacc.z);
+      lineoutPrintf("Roll: %.2f\n", gyro_data.angle.roll, false);
+      lineoutPrintf("Pitch: %.2f\n", gyro_data.angle.pitch, false);
+      lineoutPrintf("Yaw: %.2f\n", gyro_data.angle.yaw, false);
+      lineoutPrintf("Linear X Acceleration: %.2f m/s^2\n", gyro_data.linacc.x,
+                    false);
+      lineoutPrintf("Linear Y Acceleration: %.2f m/s^2\n", gyro_data.linacc.y,
+                    false);
+      lineoutPrintf("Linear Z Acceleration: %.2f m/s^2\n", gyro_data.linacc.z,
+                    false);
 
       writeDataToBuffer("GyroRoll", gyro_data.angle.roll);
       writeDataToBuffer("GyroPitch", gyro_data.angle.pitch);
@@ -126,12 +128,14 @@ void readCore() {
     } else {
       lineout("Could not read AHT30 data");
     }
-    
+
     // bmp inside
     BmpData bmp_inside_data = read_bmp(&bmp_inside, bmp_inside_alive);
     if (bmp_inside_data.success) {
-      lineoutPrintf("InsBMP Temperature: %.2f C\n", bmp_inside_data.temp);
-      lineoutPrintf("InsBMP Pressure: %.2f Pa\n", bmp_inside_data.pressure);
+      lineoutPrintf("InsBMP Temperature: %.2f C\n", bmp_inside_data.temp,
+                    false);
+      lineoutPrintf("InsBMP Pressure: %.2f Pa\n", bmp_inside_data.pressure,
+                    false);
 
       writeDataToBuffer("InsBmpTemp", bmp_inside_data.temp);
       writeDataToBuffer("InsBmpPress", bmp_inside_data.pressure);
@@ -141,8 +145,10 @@ void readCore() {
     // bmp outside
     BmpData bmp_outside_data = read_bmp(&bmp_outside, bmp_outside_alive);
     if (bmp_outside_data.success) {
-      lineoutPrintf("OutBMP Temperature: %.2f C\n", bmp_outside_data.temp);
-      lineoutPrintf("OutBMP Pressure: %.2f Pa\n", bmp_outside_data.pressure);
+      lineoutPrintf("OutBMP Temperature: %.2f C\n", bmp_outside_data.temp,
+                    false);
+      lineoutPrintf("OutBMP Pressure: %.2f Pa\n", bmp_outside_data.pressure,
+                    false);
 
       writeDataToBuffer("OutBmpTemp", bmp_outside_data.temp);
       writeDataToBuffer("OutBmpPress", bmp_outside_data.pressure);
@@ -153,8 +159,8 @@ void readCore() {
     // mcp
     McpData mcp_data = read_mcp();
     if (mcp_data.success) {
-      lineoutPrintf("MCP TempF: %f F\n", mcp_data.temp_f);
-      lineoutPrintf("MCP TempC: %f C\n", mcp_data.temp_c);
+      lineoutPrintf("MCP TempF: %f F\n", mcp_data.temp_f, false);
+      lineoutPrintf("MCP TempC: %f C\n", mcp_data.temp_c, false);
 
       writeDataToBuffer("McpTempF", mcp_data.temp_f);
       writeDataToBuffer("McpTempC", mcp_data.temp_c);
@@ -165,8 +171,10 @@ void readCore() {
     // ina low
     InaData ina_low_data = read_ina228(&ina_low, ina_low_alive);
     if (ina_low_data.success) {
-      lineoutPrintf("LowINA228 Bus Voltage: %.2f V\n", ina_low_data.busVoltage);
-      lineoutPrintf("LowINA228 Current: %.2f mA\n", ina_low_data.current);
+      lineoutPrintf("LowINA228 Bus Voltage: %.2f V\n", ina_low_data.busVoltage,
+                    false);
+      lineoutPrintf("LowINA228 Current: %.2f mA\n", ina_low_data.current,
+                    false);
 
       writeDataToBuffer("LowInaBusVolt", ina_low_data.busVoltage);
       writeDataToBuffer("LowInaCurrent", ina_low_data.current);
@@ -176,8 +184,10 @@ void readCore() {
     // ina high
     InaData ina_high_data = read_ina219(&ina_high, ina_high_alive);
     if (ina_high_data.success) {
-      lineoutPrintf("HighINA219 Bus Voltage: %.2f V\n", ina_high_data.busVoltage);
-      lineoutPrintf("HighINA219 Current: %.2f mA\n", ina_high_data.current);
+      lineoutPrintf("HighINA219 Bus Voltage: %.2f V\n",
+                    ina_high_data.busVoltage, false);
+      lineoutPrintf("HighINA219 Current: %.2f mA\n", ina_high_data.current,
+                    false);
 
       writeDataToBuffer("HighInaBusVolt", ina_high_data.busVoltage);
       writeDataToBuffer("HighInaCurrent", ina_high_data.current);
@@ -194,7 +204,8 @@ void readCore() {
 void writeCore() {
   while (true) {
 
-    /* ------------------------------ SD Card Write ----------------------------- */
+    /* ------------------------------ SD Card Write
+     * ----------------------------- */
 
     uint32_t now = millis();
     if (now - lastWriteTime >= WRITE_INTERVAL_MS) {
@@ -208,14 +219,13 @@ void writeCore() {
     }
     if (now - lastPID >= 1000) {
       float pidOutput = CalculatePID(targetTemperature, temp1sec, 1.0f);
-      ledcWrite(heaterPin, pidOutput);
-      ledcWrite(fanPin, pidOutput); 
-      lineoutPrintf("PID Output: %.2f\n", pidOutput);
+      // ledcWrite(heaterPin, pidOutput);
+      // ledcWrite(fanPin, pidOutput);
+      lineoutPrintf("PID Output: %.2f\n", pidOutput, false);
       (void)pidOutput;
 
       lastPID = now;
     }
-
 
     /* -------------------------------- Bluetooth ------------------------------- */
 
@@ -232,52 +242,57 @@ void writeCore() {
         value.trim();
         float parsed = value.toFloat();
 
-        if (command == "ping") {
-          lineout("pong");
-        } else if (command == "kp") {
+        if (command == "kp") {
           kp = parsed;
-          lineout("Updated kp: ");
-          lineout(std::to_string(kp).c_str());
+          lineout("Updated kp: ", false);
+          lineout(std::to_string(kp).c_str(), false);
         } else if (command == "ki") {
           ki = parsed;
-          lineout("Updated ki: ");
-          lineout(std::to_string(ki).c_str());
+          lineout("Updated ki: ", false);
+          lineout(std::to_string(ki).c_str(), false);
         } else if (command == "kd") {
           kd = parsed;
-          lineout("Updated kd: ");
-          lineout(std::to_string(kd).c_str());
+          lineout("Updated kd: ", false);
+          lineout(std::to_string(kd).c_str(), false);
         } else if (command == "target") {
           targetTemperature = parsed;
-          lineout("Updated target temperature: ");
-          lineout(std::to_string(targetTemperature).c_str());
+          lineout("Updated target temperature: ", false);
+          lineout(std::to_string(targetTemperature).c_str(), false);
+        } else if (command == "cycle") {
+          ledcWrite(heaterPin, parsed);
+          ledcWrite(fanPin, parsed);
+          lineout("Updated duty cycle: ", false);
+          lineout(std::to_string(parsed).c_str(), false);
         } else if (command == "debugbt") {
           bluetooth_debug_info = parsed == 1;
-          lineoutPrintf("Updated bluetooth_debug_info: %s\n", bluetooth_debug_info ? "true" : "false");
+          lineoutPrintf("Updated bluetooth_debug_info: %s\n",
+                        bluetooth_debug_info ? "true" : "false", false);
         } else if (command == "disable") {
           btStop();
-          lineout("Bluetooth disabled");
+          lineout("Bluetooth disabled", false);
         } else {
-          lineout("Unknown command");
+          lineout("Unknown command", false);
         }
       } else {
         if (incoming == "initaht") {
-          lineout("manually initializing aht30");
+          lineout("manually initializing aht30", false);
           attempt_init_aht30();
         } else if (incoming == "status") {
-          lineout("Sensor statuses:");
-          lineoutPrintf("Inside BMP390: %d\n", bmp_inside_alive);
-          lineoutPrintf("Outside BMP390: %d\n", bmp_outside_alive);
-          lineoutPrintf("FXOS8700/FXAS21002: %d\n", fxos_fxas_alive);
-          lineoutPrintf("MCP9808: %d\n", mcp_alive);
-          lineoutPrintf("AHT30: %d\n", aht_alive);
-          lineoutPrintf("INA228 Low Voltage: %d\n", ina_low_alive);
-          lineoutPrintf("INA219 High Voltage: %d\n", mcp_alive);
+          lineout("Sensor statuses:", false);
+          lineoutPrintf("Inside BMP390: %d\n", bmp_inside_alive, false);
+          lineoutPrintf("Outside BMP390: %d\n", bmp_outside_alive, false);
+          lineoutPrintf("FXOS8700/FXAS21002: %d\n", fxos_fxas_alive, false);
+          lineoutPrintf("MCP9808: %d\n", mcp_alive, false);
+          lineoutPrintf("AHT30: %d\n", aht_alive, false);
+          lineoutPrintf("INA228 Low Voltage: %d\n", ina_low_alive, false);
+          lineoutPrintf("INA219 High Voltage: %d\n", mcp_alive, false);
         } else if (incoming == "fullreset") {
-          lineout("Restarting ESP32");
+          lineout("Restarting ESP32", false);
           ESP.restart();
         }
       }
-      while (SerialBT.available() > 0) SerialBT.read();
+      while (SerialBT.available() > 0)
+        SerialBT.read();
     }
 
     delay(100);
@@ -311,11 +326,13 @@ int attempt_init_fxas21002(int current_attempt) {
   madgwick.begin(100);
   return 1;
 }
-int attempt_init_bmp390(Adafruit_BMP3XX *bmp, int address, int current_attempt) {
+int attempt_init_bmp390(Adafruit_BMP3XX *bmp, int address,
+                        int current_attempt) {
   if (current_attempt > MAX_INIT_ATTEMPTS) {
     return 0;
   }
-  lineoutPrintf("Attempt %d to initialize BMP390 on I2C Address 0x%x\n", current_attempt, address);
+  lineoutPrintf("Attempt %d to initialize BMP390 on I2C Address 0x%x\n",
+                current_attempt, address);
 
   if (!bmp->begin_I2C(address)) {
     return attempt_init_bmp390(bmp, address, current_attempt + 1);
@@ -370,11 +387,13 @@ int attempt_init_sdreader(int current_attempt) {
   }
   return 1;
 }
-int attempt_init_ina228(Adafruit_INA228 *ina, int address, int current_attempt) {
+int attempt_init_ina228(Adafruit_INA228 *ina, int address,
+                        int current_attempt) {
   if (current_attempt > MAX_INIT_ATTEMPTS) {
     return 0;
   }
-  lineoutPrintf("Attempt %d to initialize INA228 on I2C Address 0x%x\n", current_attempt, address);
+  lineoutPrintf("Attempt %d to initialize INA228 on I2C Address 0x%x\n",
+                current_attempt, address);
 
   if (!ina->begin(address)) {
     return attempt_init_ina228(ina, address, current_attempt + 1);
@@ -382,11 +401,13 @@ int attempt_init_ina228(Adafruit_INA228 *ina, int address, int current_attempt) 
   ina->setShunt(0.015, 10.0);
   return 1;
 }
-int attempt_init_ina219(Adafruit_INA219 *ina, int address, int current_attempt) {
+int attempt_init_ina219(Adafruit_INA219 *ina, int address,
+                        int current_attempt) {
   if (current_attempt > MAX_INIT_ATTEMPTS) {
     return 0;
   }
-  lineoutPrintf("Attempt %d to initialize INA219 on I2C Address 0x%x\n", current_attempt, address);
+  lineoutPrintf("Attempt %d to initialize INA219 on I2C Address 0x%x\n",
+                current_attempt, address);
 
   *ina = Adafruit_INA219(address);
   if (!ina->begin()) {
@@ -441,7 +462,8 @@ void setup() {
 
   // randomSeed((uint32_t)esp_random());
 
-  /* ---------------------------------- inits --------------------------------- */
+  /* ---------------------------------- inits ---------------------------------
+   */
 
   // Initialize AHT30 Temperature sensor
   if (aht_alive = attempt_init_aht30()) {
@@ -459,22 +481,24 @@ void setup() {
   }
 
   // Initialize BMP390 Pressure sensor
-  if (bmp_outside_alive = attempt_init_bmp390(&bmp_outside, 0x77)) { // outside temp/pres
-      lineout("Outside BMP390 on I2C Address 0x77 Initialized\n");
+  if (bmp_outside_alive =
+          attempt_init_bmp390(&bmp_outside, 0x77)) { // outside temp/pres
+    lineout("Outside BMP390 on I2C Address 0x77 Initialized\n");
   } else {
-      lineout("Could not find a valid outside BMP sensor, check wiring!\n");
+    lineout("Could not find a valid outside BMP sensor, check wiring!\n");
   }
 
-  if (bmp_inside_alive = attempt_init_bmp390(&bmp_inside, 0x76)) {  // inside temp/pres
+  if (bmp_inside_alive =
+          attempt_init_bmp390(&bmp_inside, 0x76)) { // inside temp/pres
     lineout("Inside BMP390 on I2C Address 0x76 Initialized\n");
   } else {
     lineout("Could not find a valid inside BMP sensor, check wiring!\n");
   }
 
   if (mcp_alive = attempt_init_mcp9808()) {
-      lineout("MCP9808 Initialized\n");
+    lineout("MCP9808 Initialized\n");
   } else {
-      lineout("Failed to initialize MCP9808 sensor\n");
+    lineout("Failed to initialize MCP9808 sensor\n");
   }
 
   if (ina_low_alive = attempt_init_ina228(&ina_low, 0x41)) {
@@ -495,25 +519,14 @@ void setup() {
   PWMSetup(12, 5000, 8);
   lineout("PWM Fan Controller Initialized\n");
 
-  /* --------------------------- Create pinned tasks -------------------------- */
+  /* --------------------------- Create pinned tasks --------------------------
+   */
 
-  xTaskCreatePinnedToCore(
-    sensorTask,
-    "SensorDataTask",
-    4096,
-    NULL,
-    1,
-    NULL,
-    READ_CORE_ID);
+  xTaskCreatePinnedToCore(sensorTask, "SensorDataTask", 4096, NULL, 1, NULL,
+                          READ_CORE_ID);
 
-  xTaskCreatePinnedToCore(
-    sdWriteTask,
-    "SDWriteTask",
-    4096,
-    NULL,
-    1,
-    NULL,
-    WRITE_CORE_ID);
+  xTaskCreatePinnedToCore(sdWriteTask, "SDWriteTask", 4096, NULL, 1, NULL,
+                          WRITE_CORE_ID);
 }
 
 // don't use
