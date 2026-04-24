@@ -204,8 +204,7 @@ void readCore() {
 void writeCore() {
   while (true) {
 
-    /* ------------------------------ SD Card Write
-     * ----------------------------- */
+    /* ------------------------------ SD Card Write ----------------------------- */
 
     uint32_t now = millis();
     if (now - lastWriteTime >= WRITE_INTERVAL_MS) {
@@ -219,8 +218,8 @@ void writeCore() {
     }
     if (now - lastPID >= 1000) {
       float pidOutput = CalculatePID(targetTemperature, temp1sec, 1.0f);
-      // ledcWrite(heaterPin, pidOutput);
-      // ledcWrite(fanPin, pidOutput);
+      ledcWrite(heaterPin, std::max(25, pidOutput));
+      ledcWrite(fanPin, pidOutput);
       lineoutPrintf("PID Output: %.2f\n", pidOutput, false);
       (void)pidOutput;
 
