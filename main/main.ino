@@ -34,8 +34,6 @@ SemaphoreHandle_t logMutex = NULL;
 int heaterPin = 13;
 int fanPin = 12;
 
-// TODO: make these correspond correctly
-
 uint64_t lastPID = 0;
 uint64_t lastTime = 0;
 float dutyCycle = 0.0f;
