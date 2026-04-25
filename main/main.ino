@@ -262,6 +262,8 @@ void writeCore() {
         delay(100);
       }
     }
+  }
+}
 
     void setup() {
       Serial.begin(115200);
