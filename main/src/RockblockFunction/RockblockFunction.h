@@ -31,3 +31,4 @@ SerializedTable serialize_table(Table *t);
 Table *deserialize_table(SerializedTable t);
 size_t table_memsize(Table *t);
 void send_table(Table *t);
+bool initRockblock();

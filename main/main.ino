@@ -296,9 +296,16 @@ void writeCore() {
       } else {
         lineout("RockBlock Buffer failed to initialize\n");
       }
-
+      
       /* ---------------------------------- inits --------------------------------- */
-
+      
+      // Initialize Rockblock
+      if (rockblock_alive = attempt_init_rockblock()) {
+        lineout("Rockblock Initialized\n");
+      } else {
+        lineout("Failed to initialize Rockblock\n");
+      }
+      
       // Initialize AHT30 Temperature sensor
       if (aht_alive = attempt_init_aht30()) {
         lineout("AHT30 Initialized\n");
@@ -351,6 +358,7 @@ void writeCore() {
       } else {
         lineout("Failed to initialize High Voltage INA219 sensor\n");
       }
+
 
       // Initialize PID controller
       PWMSetup(13, 5000, 8);

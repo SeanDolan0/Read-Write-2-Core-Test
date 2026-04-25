@@ -13,6 +13,7 @@
 #include "log_wrapper/log_wrapper.h"
 #include "mcp_function/mcp_function.h"
 
+
 #include <Adafruit_AHTX0.h>
 #include <Adafruit_BMP3XX.h>
 #include <Adafruit_FXAS21002C.h>
@@ -34,6 +35,7 @@ extern bool ina_low_alive;
 extern bool ina_high_alive;
 extern bool pwm_fan_alive;
 extern bool pwm_heater_alive;
+extern bool rockblock_alive;
 
 extern Adafruit_FXOS8700 fxos;
 extern Adafruit_FXAS21002C fxas;
@@ -63,3 +65,4 @@ int attempt_init_ina228(Adafruit_INA228 *ina, int address,
 int attempt_init_ina219(Adafruit_INA219 *ina, int address,
                         int current_attempt = 1);
 int attempt_init_rockblock_buffer(int current_attempt = 1);
+int attempt_init_rockblock(int current_attempt = 1);

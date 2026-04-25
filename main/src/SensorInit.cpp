@@ -10,6 +10,7 @@ bool ina_low_alive;
 bool ina_high_alive;
 bool pwm_fan_alive;
 bool pwm_heater_alive;
+bool rockblock_alive;
 
 Adafruit_FXOS8700 fxos = Adafruit_FXOS8700(0x1F);
 Adafruit_FXAS21002C fxas = Adafruit_FXAS21002C(0x0021002C);
@@ -155,6 +156,18 @@ int attempt_init_rockblock_buffer(int current_attempt) {
 
   if (!initRockblockBuffer()) {
     return attempt_init_rockblock_buffer(current_attempt + 1);
+  }
+  return 1;
+}
+
+int attempt_init_rockblock(int current_attempt) {
+  if (current_attempt > MAX_INIT_ATTEMPTS) {
+    return 0;
+  }
+  lineoutPrintf("Attempt %d to initialize RockBlock\n", current_attempt);
+
+  if (!initRockblock()) {
+    return attempt_init_rockblock(current_attempt + 1);
   }
   return 1;
 }
