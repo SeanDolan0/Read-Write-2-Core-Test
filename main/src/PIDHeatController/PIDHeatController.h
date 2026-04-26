@@ -9,3 +9,4 @@ extern float targetTemperature;
 extern float maxVal;
 
 float CalculatePID(float target, float current, float dt);
+void ResetPID();

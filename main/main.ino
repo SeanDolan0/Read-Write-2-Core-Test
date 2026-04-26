@@ -114,8 +114,11 @@ void readCore() {
       writeDataToBuffer("InsBmpPress", bmp_inside_data.pressure);
 
       if (bmp_inside_data.pressure < 12000.0f) {
-        lowPressure = true;
-        targetTemperature = 0.0f;
+        if (!lowPressure) {
+          lowPressure = true;
+          targetTemperature = 0.0f;
+          ResetPID(); // Reset PID when disabling heater due to low pressure
+        }
       } else {
         lowPressure = false;
       }
@@ -396,6 +399,9 @@ void setup() {
 
   PWMSetup(12, 5000, 8);
   lineout("PWM Fan Controller Initialized\n");
+
+  // Reset PID state at startup
+  ResetPID();
 
   /* --------------------------- Create pinned tasks --------------------------
    */
