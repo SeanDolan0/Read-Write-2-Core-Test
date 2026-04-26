@@ -146,6 +146,9 @@ void send_table(Table *t) {
 
   size_t size = table_memsize(t);
 
+  lineout("attempeting to send rockblock message of size ", false);
+  lineoutDebugPrintf("%zu\n", size);
+
   int err = IridiumModem.sendSBDBinary((uint8_t *)st, size);
 
   if (err != ISBD_SUCCESS) {
@@ -153,6 +156,8 @@ void send_table(Table *t) {
     lineoutDebugPrintf("%d\n", err);
     if (err == ISBD_SENDRECEIVE_TIMEOUT)
       lineout("Rockblock send timeout error");
+  } else {
+    lineout("Rockblock message sent successfully", false);
   }
 
   free(st);

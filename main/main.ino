@@ -201,7 +201,6 @@ void writeCore() {
     }
     if (now - lastPID >= 1000) {
       float pidOutput = CalculatePID(targetTemperature, temp1sec, 1.0f);
-`
       uint32_t appliedHeaterDuty =
           lowPressure
               ? 25u
