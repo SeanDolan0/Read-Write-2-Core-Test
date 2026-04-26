@@ -1,11 +1,10 @@
 #include "src/Sensors.h"
 #include <Arduino.h>
 
-
 float kp = 20.0f;
 float ki = 1.0f;
 float kd = 5.0f;
-float targetTemperature = 30.0f;
+float targetTemperature = 35.0f;
 float maxVal = 255.0f;
 
 float integral = 0;

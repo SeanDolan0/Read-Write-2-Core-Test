@@ -112,8 +112,10 @@ void readCore() {
 
       writeDataToBuffer("InsBmpTemp", bmp_inside_data.temp);
       writeDataToBuffer("InsBmpPress", bmp_inside_data.pressure);
+
       if (bmp_inside_data.pressure < 12000.0f) {
         lowPressure = true;
+        targetTemperature = 0.0f;
       } else {
         lowPressure = false;
       }
@@ -199,16 +201,15 @@ void writeCore() {
     }
     if (now - lastPID >= 1000) {
       float pidOutput = CalculatePID(targetTemperature, temp1sec, 1.0f);
-
+`
       uint32_t appliedHeaterDuty =
           lowPressure
-              ? 0u
+              ? 25u
               : std::max<uint32_t>(25u, static_cast<uint32_t>(pidOutput));
 
       uint32_t appliedFanDuty =
-          lowPressure
-              ? 0u
-              : std::max<uint32_t>(25u, static_cast<uint32_t>(pidOutput));
+          lowPressure ? 0u : static_cast<uint32_t>(pidOutput);
+
       ledcWrite(heaterPin, appliedHeaterDuty);
       ledcWrite(fanPin, appliedFanDuty);
 
@@ -291,44 +292,19 @@ void writeCore() {
   }
 }
 
-static bool probeRockblockUart(uint32_t timeoutMs) {
-  while (IridiumSerial.available() > 0) {
-    (void)IridiumSerial.read();
-  }
-
-  IridiumSerial.print("AT\r");
-
-  String response;
-  const uint32_t start = millis();
-  while (millis() - start < timeoutMs) {
-    while (IridiumSerial.available() > 0) {
-      char c = static_cast<char>(IridiumSerial.read());
-      response += c;
-    }
-
-    if (response.indexOf("OK") >= 0) {
-      return true;
-    }
-
-    delay(10);
-  }
-
-  return false;
-}
-
 void setup() {
   Serial.begin(115200);
 
   delay(2000);
 
-  IridiumSerial.begin(IRIDIUM_BAUD, SERIAL_8N1, IRIDIUM_RX_PIN, IRIDIUM_TX_PIN);
+  IridiumSerial.begin(19200, SERIAL_8N1, 16, 17);
 
   initBluetooth();
 
   lineout("ESP32 Started");
   lineoutPrintf("Total heap available post-startup: %zu\n", ESP.getFreeHeap());
-  lineoutPrintf("Rockblock UART configured at %lu baud, RX=%d TX=%d\n",
-                IRIDIUM_BAUD, IRIDIUM_RX_PIN, IRIDIUM_TX_PIN);
+  lineoutPrintf("Rockblock UART configured at %lu baud, RX=%d TX=%d\n", 19200,
+                16, 17);
 
   // Initialize Mutex
   if (attempt_init_mutex()) {
@@ -357,15 +333,10 @@ void setup() {
 
   // Initialize Rockblock
   lineout("Initializing Rockblock...");
-  if (probeRockblockUart(1500)) {
-    if (initRockblock()) {
-      lineout("Rockblock Initialized\n");
-    } else {
-      lineout("Failed to initialize Rockblock\n");
-    }
+  if (initRockblock()) {
+    lineout("Rockblock Initialized\n");
   } else {
-    lineout(
-        "Rockblock modem did not respond to AT probe; skipping modem init\n");
+    lineout("Failed to initialize Rockblock\n");
   }
 
   // Initialize AHT30 Temperature sensor
