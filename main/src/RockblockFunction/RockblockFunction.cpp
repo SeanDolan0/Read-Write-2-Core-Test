@@ -1,10 +1,22 @@
 // code courtesy of https://github.com/HogeyDev with slight modifications
 
 #include "RockblockFunction.h"
+#include "src/SdFunction/SdFunction.h"
 #include "src/Sensors.h"
 #include "src/log_wrapper/log_wrapper.h"
 
+
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+
 static bool rockblockModemReady = false;
+
+bool ISBDCallback() {
+  // Allow FreeRTOS to schedule IDLE tasks during long modem wait loops.
+  vTaskDelay(pdMS_TO_TICKS(1));
+  // lineout("Callback", false);
+  return true;
+}
 
 bool initRockblock() {
 
@@ -17,7 +29,10 @@ bool initRockblock() {
       lineout("No modem detected: check wiring.");
     return false;
   }
-  IridiumModem.attachConsole(Serial);
+
+  // Bound blocking modem operations so communication failures recover quickly.
+  IridiumModem.adjustSendReceiveTimeout(45);
+
   rockblockModemReady = true;
   lineout("Iridium modem initialized successfully");
   return true;
@@ -51,8 +66,9 @@ Table *checkTable(Table *t) {
   if (!t) {
     return new_table();
   }
+  uint64_t now = millis();
   if (table_memsize(t) + sizeof(TableEntry) + 2 >= 340) {
-    send_table(t);
+    // send_table(t);
     free_table(t);
     t = new_table();
   }
@@ -148,7 +164,6 @@ void send_table(Table *t) {
 
   lineout("attempeting to send rockblock message of size ", false);
   lineoutDebugPrintf("%zu\n", size);
-  lineoutDebugPrintf("signal strength: %zu\n", );
 
   int err = IridiumModem.sendSBDBinary((uint8_t *)st, size);
 

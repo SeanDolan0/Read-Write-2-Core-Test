@@ -48,6 +48,7 @@ int fanPin = 12;
 
 uint64_t lastPID = 0;
 uint64_t lastTime = 0;
+uint64_t lastRockblockSendTime = 0;
 float dutyCycle = 0.0f;
 
 float temp1sec;
@@ -70,8 +71,8 @@ void readCore() {
     // AHT30 sensor
     AHT_Data_Return aht_data = readAht30();
     if (aht_data.success) {
-      lineoutPrintf("Humidity: %.2f%\n", aht_data.humidity, false);
-      lineoutPrintf("Temperature: %.2f C\n", aht_data.temperature, false);
+      // lineoutPrintf("Humidity: %.2f%\n", aht_data.humidity, false);
+      // lineoutPrintf("Temperature: %.2f C\n", aht_data.temperature, false);
 
       writeDataToBuffer("AhtTemperature", aht_data.temperature);
       writeDataToBuffer("AhtHumidity", aht_data.humidity);
@@ -82,15 +83,18 @@ void readCore() {
     // FXOS8700 / FXAS21002C sensor
     GyroData gyro_data = read_fxos_fxas_gyro();
     if (gyro_data.success) {
-      lineoutPrintf("Roll: %.2f\n", gyro_data.angle.roll, false);
-      lineoutPrintf("Pitch: %.2f\n", gyro_data.angle.pitch, false);
-      lineoutPrintf("Yaw: %.2f\n", gyro_data.angle.yaw, false);
-      lineoutPrintf("Linear X Acceleration: %.2f m/s^2\n", gyro_data.linacc.x,
-                    false);
-      lineoutPrintf("Linear Y Acceleration: %.2f m/s^2\n", gyro_data.linacc.y,
-                    false);
-      lineoutPrintf("Linear Z Acceleration: %.2f m/s^2\n", gyro_data.linacc.z,
-                    false);
+      // lineoutPrintf("Roll: %.2f\n", gyro_data.angle.roll, false);
+      // lineoutPrintf("Pitch: %.2f\n", gyro_data.angle.pitch, false);
+      // lineoutPrintf("Yaw: %.2f\n", gyro_data.angle.yaw, false);
+      // lineoutPrintf("Linear X Acceleration: %.2f m/s^2\n",
+      // gyro_data.linacc.x,
+      //               false);
+      // lineoutPrintf("Linear Y Acceleration: %.2f m/s^2\n",
+      // gyro_data.linacc.y,
+      //               false);
+      // lineoutPrintf("Linear Z Acceleration: %.2f m/s^2\n",
+      // gyro_data.linacc.z,
+      //               false);
 
       writeDataToBuffer("GyroRoll", gyro_data.angle.roll);
       writeDataToBuffer("GyroPitch", gyro_data.angle.pitch);
@@ -105,10 +109,10 @@ void readCore() {
     // bmp inside
     BmpData bmp_inside_data = read_bmp(&bmp_inside, bmp_inside_alive);
     if (bmp_inside_data.success) {
-      lineoutPrintf("InsBMP Temperature: %.2f C\n", bmp_inside_data.temp,
-                    false);
-      lineoutPrintf("InsBMP Pressure: %.2f Pa\n", bmp_inside_data.pressure,
-                    false);
+      // lineoutPrintf("InsBMP Temperature: %.2f C\n", bmp_inside_data.temp,
+      //               false);
+      // lineoutPrintf("InsBMP Pressure: %.2f Pa\n", bmp_inside_data.pressure,
+      //               false);
 
       writeDataToBuffer("InsBmpTemp", bmp_inside_data.temp);
       writeDataToBuffer("InsBmpPress", bmp_inside_data.pressure);
@@ -129,10 +133,10 @@ void readCore() {
     // bmp outside
     BmpData bmp_outside_data = read_bmp(&bmp_outside, bmp_outside_alive);
     if (bmp_outside_data.success) {
-      lineoutPrintf("OutBMP Temperature: %.2f C\n", bmp_outside_data.temp,
-                    false);
-      lineoutPrintf("OutBMP Pressure: %.2f Pa\n", bmp_outside_data.pressure,
-                    false);
+      // lineoutPrintf("OutBMP Temperature: %.2f C\n", bmp_outside_data.temp,
+      //               false);
+      // lineoutPrintf("OutBMP Pressure: %.2f Pa\n", bmp_outside_data.pressure,
+      //               false);
 
       writeDataToBuffer("OutBmpTemp", bmp_outside_data.temp);
       writeDataToBuffer("OutBmpPress", bmp_outside_data.pressure);
@@ -143,8 +147,8 @@ void readCore() {
     // mcp
     McpData mcp_data = read_mcp();
     if (mcp_data.success) {
-      lineoutPrintf("MCP TempF: %f F\n", mcp_data.temp_f, false);
-      lineoutPrintf("MCP TempC: %f C\n", mcp_data.temp_c, false);
+      // lineoutPrintf("MCP TempF: %f F\n", mcp_data.temp_f, false);
+      // lineoutPrintf("MCP TempC: %f C\n", mcp_data.temp_c, false);
 
       writeDataToBuffer("McpTempF", mcp_data.temp_f);
       writeDataToBuffer("McpTempC", mcp_data.temp_c);
@@ -155,10 +159,11 @@ void readCore() {
     // ina low
     InaData ina_low_data = read_ina228(&ina_low, ina_low_alive);
     if (ina_low_data.success) {
-      lineoutPrintf("LowINA228 Bus Voltage: %.2f V\n", ina_low_data.busVoltage,
-                    false);
-      lineoutPrintf("LowINA228 Current: %.2f mA\n", ina_low_data.current,
-                    false);
+      // lineoutPrintf("LowINA228 Bus Voltage: %.2f V\n",
+      // ina_low_data.busVoltage,
+      //               false);
+      // lineoutPrintf("LowINA228 Current: %.2f mA\n", ina_low_data.current,
+      //               false);
 
       writeDataToBuffer("LowInaBusVolt", ina_low_data.busVoltage);
       writeDataToBuffer("LowInaCurrent", ina_low_data.current);
@@ -169,10 +174,10 @@ void readCore() {
     // ina high
     InaData ina_high_data = read_ina219(&ina_high, ina_high_alive);
     if (ina_high_data.success) {
-      lineoutPrintf("HighINA219 Bus Voltage: %.2f V\n",
-                    ina_high_data.busVoltage, false);
-      lineoutPrintf("HighINA219 Current: %.2f mA\n", ina_high_data.current,
-                    false);
+      // lineoutPrintf("HighINA219 Bus Voltage: %.2f V\n",
+      //               ina_high_data.busVoltage, false);
+      // lineoutPrintf("HighINA219 Current: %.2f mA\n", ina_high_data.current,
+      //               false);
 
       writeDataToBuffer("HighInaBusVolt", ina_high_data.busVoltage);
       writeDataToBuffer("HighInaCurrent", ina_high_data.current);
@@ -193,12 +198,19 @@ void writeCore() {
      * ----------------------------- */
 
     uint32_t now = millis();
+
+    if (now - lastRockblockSendTime >= ROCKBLOCK_SEND_INTERVAL_MS) {
+      if (!sendRockblockBuffer()) {
+        lineout("Failed to send rockblock buffer");
+      } else {
+        lineout("Sent rockblock buffer", false);
+      }
+      lastRockblockSendTime = now;
+    }
+
     if (now - lastWriteTime >= WRITE_INTERVAL_MS) {
       if (!LogWriteBuffer()) {
         lineout("Failed to write log buffer to SD");
-      }
-      if (!sendRockblockBuffer()) {
-        lineout("Failed to send rockblock buffer");
       }
       lastWriteTime = now;
     }
