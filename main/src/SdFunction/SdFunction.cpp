@@ -60,6 +60,7 @@ bool sendRockblockBuffer() {
 bool initSDCard() { // Init SD card and create CSV file with header if it doesn't exist
     for (size_t i = 0; i < SensorDataType::SENSOR_COUNT; i++) {
         CSV_COLUMNS[i] = get_sensor_name((SensorDataType)i);
+        // lineoutPrintf("initializing #%zu: %s\n", i, CSV_COLUMNS[i]);
     }
 
     // SD Card Initialization
@@ -139,7 +140,7 @@ void writeDataToBuffer(const char* name, float value) { // Write data to log buf
     if (rockblockTable) {
         
         int index = -1;
-        for (int i = 0; i < NUM_SENSORS; i++) {
+        for (int i = 0; i < SENSOR_COUNT; i++) {
             if (strcmp(name, CSV_COLUMNS[i]) == 0) {
                 index = i;
                 break;
@@ -151,6 +152,8 @@ void writeDataToBuffer(const char* name, float value) { // Write data to log buf
         } else if (index == -1) {
             lineoutPrintf("Unknown sensor name, not adding to rockblock buffer value for %s\n", name); 
         }
+
+        checkTable();
     }
 
     if (sd.fatType() == 0) return; // card not initialized

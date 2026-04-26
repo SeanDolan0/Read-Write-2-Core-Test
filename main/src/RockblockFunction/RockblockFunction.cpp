@@ -17,6 +17,7 @@ bool initRockblock() {
       lineout("No modem detected: check wiring.");
     return false;
   }
+  IridiumModem.attachConsole(Serial);
   rockblockModemReady = true;
   lineout("Iridium modem initialized successfully");
   return true;
@@ -50,8 +51,7 @@ Table *checkTable(Table *t) {
   if (!t) {
     return new_table();
   }
-  if (table_memsize(t) + sizeof(TableEntry) + 2 > 340) {
-
+  if (table_memsize(t) + sizeof(TableEntry) + 2 >= 340) {
     send_table(t);
     free_table(t);
     t = new_table();
@@ -148,6 +148,7 @@ void send_table(Table *t) {
 
   lineout("attempeting to send rockblock message of size ", false);
   lineoutDebugPrintf("%zu\n", size);
+  lineoutDebugPrintf("signal strength: %zu\n", );
 
   int err = IridiumModem.sendSBDBinary((uint8_t *)st, size);
 
