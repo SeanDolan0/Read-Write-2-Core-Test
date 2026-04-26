@@ -4,19 +4,12 @@
 #include "src/Sensors.h"
 #include "src/log_wrapper/log_wrapper.h"
 
-#define IridiumSerial Serial2
-
-IridiumSBD IridiumModem(IridiumSerial);
+static bool rockblockModemReady = false;
 
 bool initRockblock() {
-  int signalQuality = -1;
-  int err;
 
-  // Start the serial port connected to the satellite modem
-  IridiumSerial.begin(19200);
-
-  // Begin satellite modem operation
-  err = IridiumModem.begin();
+  rockblockModemReady = false;
+  int err = IridiumModem.begin();
   if (err != ISBD_SUCCESS) {
     lineout("Begin failed: error ");
     lineoutDebugPrintf("%d\n", err);
@@ -24,6 +17,7 @@ bool initRockblock() {
       lineout("No modem detected: check wiring.");
     return false;
   }
+  rockblockModemReady = true;
   lineout("Iridium modem initialized successfully");
   return true;
 }
@@ -136,6 +130,11 @@ size_t table_memsize(Table *t) {
 
 void send_table(Table *t) {
   if (!t) {
+    return;
+  }
+
+  if (!rockblockModemReady) {
+    lineout("Rockblock modem not initialized; skipping satellite send");
     return;
   }
 

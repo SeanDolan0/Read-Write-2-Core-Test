@@ -31,6 +31,18 @@
 
 SemaphoreHandle_t logMutex = NULL;
 
+int signalQuality = -1;
+int err;
+
+#define IridiumSerial Serial2
+IridiumSBD IridiumModem(IridiumSerial);
+
+constexpr uint32_t IRIDIUM_BAUD = 19200;
+constexpr int IRIDIUM_RX_PIN = 16;
+constexpr int IRIDIUM_TX_PIN = 17;
+
+bool lowPressure = false;
+
 int heaterPin = 13;
 int fanPin = 12;
 
@@ -100,6 +112,11 @@ void readCore() {
 
       writeDataToBuffer("InsBmpTemp", bmp_inside_data.temp);
       writeDataToBuffer("InsBmpPress", bmp_inside_data.pressure);
+      if (bmp_inside_data.pressure < 12000.0f) {
+        lowPressure = true;
+      } else {
+        lowPressure = false;
+      }
     } else {
       lineout("Could not read Inside BMP390 data");
     }
@@ -167,7 +184,8 @@ void readCore() {
 void writeCore() {
   while (true) {
 
-    /* ------------------------------ SD Card Write ----------------------------- */
+    /* ------------------------------ SD Card Write
+     * ----------------------------- */
 
     uint32_t now = millis();
     if (now - lastWriteTime >= WRITE_INTERVAL_MS) {
@@ -182,11 +200,17 @@ void writeCore() {
     if (now - lastPID >= 1000) {
       float pidOutput = CalculatePID(targetTemperature, temp1sec, 1.0f);
 
-      uint32_t heaterDuty = static_cast<uint32_t>(std::max(25.0f, pidOutput));
-      uint32_t fanDuty = static_cast<uint32_t>(pidOutput);
+      uint32_t appliedHeaterDuty =
+          lowPressure
+              ? 0u
+              : std::max<uint32_t>(25u, static_cast<uint32_t>(pidOutput));
 
-      ledcWrite(heaterPin, heaterDuty);
-      ledcWrite(fanPin, fanDuty);
+      uint32_t appliedFanDuty =
+          lowPressure
+              ? 0u
+              : std::max<uint32_t>(25u, static_cast<uint32_t>(pidOutput));
+      ledcWrite(heaterPin, appliedHeaterDuty);
+      ledcWrite(fanPin, appliedFanDuty);
 
       lineoutPrintf("PID Output: %.2f\n", pidOutput, false);
 
@@ -195,7 +219,8 @@ void writeCore() {
       lastPID = now;
     }
 
-    /* -------------------------------- Bluetooth ------------------------------- */
+    /* -------------------------------- Bluetooth
+     * ------------------------------- */
 
     if (SerialBT.available() > 0) {
       // Clear buffer
@@ -260,121 +285,157 @@ void writeCore() {
         delay(100);
       }
     }
+
+    // Always yield so IDLE0 can run and service the task watchdog.
+    vTaskDelay(pdMS_TO_TICKS(10));
   }
 }
 
-    void setup() {
-      Serial.begin(115200);
-      initBluetooth();
+static bool probeRockblockUart(uint32_t timeoutMs) {
+  while (IridiumSerial.available() > 0) {
+    (void)IridiumSerial.read();
+  }
 
-      lineout("ESP32 Started");
-      lineoutPrintf("Total heap available post-startup: %zu\n",
-                    ESP.getFreeHeap());
+  IridiumSerial.print("AT\r");
 
-      while (!Serial) {
-        delay(100);
-      }
-
-      // Initialize Mutex
-      if (attempt_init_mutex()) {
-        lineout("Mutex Initialized\n");
-      } else {
-        lineout("Failed to create mutex\n");
-        ESP.restart();
-      }
-
-      // Initialize SD card
-      if (sdReady = attempt_init_sdreader()) {
-        lineout("SD Card Reader Initialized\n");
-      } else {
-        lineout("Failed to initialize SD Card Reader\n");
-      }
-
-      // Initialize rockblock buffer
-      if (attempt_init_rockblock_buffer()) {
-        lineout("RockBlock Buffer Initialized\n");
-      } else {
-        lineout("RockBlock Buffer failed to initialize\n");
-      }
-      
-      /* ---------------------------------- inits --------------------------------- */
-      
-      // Initialize Rockblock
-      if (rockblock_alive = attempt_init_rockblock()) {
-        lineout("Rockblock Initialized\n");
-      } else {
-        lineout("Failed to initialize Rockblock\n");
-      }
-      
-      // Initialize AHT30 Temperature sensor
-      if (aht_alive = attempt_init_aht30()) {
-        lineout("AHT30 Initialized\n");
-      } else {
-        lineout("Failed to initialize AHT30 sensor\n");
-      }
-
-      // Initialize FXOS8700/FXAS21002 sensor
-      if (fxos_fxas_alive =
-              (attempt_init_fxos8700() && attempt_init_fxas21002())) {
-        lineout("FXOS8700/FXAS21002 Initialized\n");
-      } else {
-        lineout("Failed to initialize FXOS8700/FXAS21002 sensor\n");
-        madgwick.begin(100);
-      }
-
-      // Initialize outside BMP390 Pressure sensor
-      if (bmp_outside_alive =
-              attempt_init_bmp390(&bmp_outside, 0x77)) { // outside temp/pres
-        lineout("Outside BMP390 on I2C Address 0x77 Initialized\n");
-      } else {
-        lineout("Could not find a valid outside BMP sensor, check wiring!\n");
-      }
-
-      // Initialize inside BMP390 Pressure sensor
-      if (bmp_inside_alive =
-              attempt_init_bmp390(&bmp_inside, 0x76)) { // inside temp/pres
-        lineout("Inside BMP390 on I2C Address 0x76 Initialized\n");
-      } else {
-        lineout("Could not find a valid inside BMP sensor, check wiring!\n");
-      }
-
-      // Initialize MCP9808 Temperature sensor
-      if (mcp_alive = attempt_init_mcp9808()) {
-        lineout("MCP9808 Initialized\n");
-      } else {
-        lineout("Failed to initialize MCP9808 sensor\n");
-      }
-
-      // Initialize INA228 Low Voltage Power Monitor
-      if (ina_low_alive = attempt_init_ina228(&ina_low, 0x41)) {
-        lineout("Low Voltage INA228 Initialized\n");
-      } else {
-        lineout("Failed to initialize Low Voltage INA228 sensor\n");
-      }
-
-      // Initialize INA219 High Voltage Power Monitor
-      if (ina_high_alive = attempt_init_ina219(&ina_high, 0x40)) {
-        lineout("High Voltage INA219 Initialized\n");
-      } else {
-        lineout("Failed to initialize High Voltage INA219 sensor\n");
-      }
-
-
-      // Initialize PID controller
-      PWMSetup(13, 5000, 8);
-      lineout("PWM Heater Controller Initialized\n");
-
-      PWMSetup(12, 5000, 8);
-      lineout("PWM Fan Controller Initialized\n");
-
-      /* --------------------------- Create pinned tasks -------------------------- */
-
-      xTaskCreatePinnedToCore(sensorTask, "SensorDataTask", 4096, NULL, 1, NULL,
-                              READ_CORE_ID);
-
-      xTaskCreatePinnedToCore(sdWriteTask, "SDWriteTask", 4096, NULL, 1, NULL,
-                              WRITE_CORE_ID);
+  String response;
+  const uint32_t start = millis();
+  while (millis() - start < timeoutMs) {
+    while (IridiumSerial.available() > 0) {
+      char c = static_cast<char>(IridiumSerial.read());
+      response += c;
     }
 
-    // don't use
-    void loop() {}
+    if (response.indexOf("OK") >= 0) {
+      return true;
+    }
+
+    delay(10);
+  }
+
+  return false;
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  delay(2000);
+
+  IridiumSerial.begin(IRIDIUM_BAUD, SERIAL_8N1, IRIDIUM_RX_PIN, IRIDIUM_TX_PIN);
+
+  initBluetooth();
+
+  lineout("ESP32 Started");
+  lineoutPrintf("Total heap available post-startup: %zu\n", ESP.getFreeHeap());
+  lineoutPrintf("Rockblock UART configured at %lu baud, RX=%d TX=%d\n",
+                IRIDIUM_BAUD, IRIDIUM_RX_PIN, IRIDIUM_TX_PIN);
+
+  // Initialize Mutex
+  if (attempt_init_mutex()) {
+    lineout("Mutex Initialized\n");
+  } else {
+    lineout("Failed to create mutex\n");
+    ESP.restart();
+  }
+
+  // Initialize SD card
+  if (sdReady = attempt_init_sdreader()) {
+    lineout("SD Card Reader Initialized\n");
+  } else {
+    lineout("Failed to initialize SD Card Reader\n");
+  }
+
+  // Initialize rockblock buffer
+  if (attempt_init_rockblock_buffer()) {
+    lineout("RockBlock Buffer Initialized\n");
+  } else {
+    lineout("RockBlock Buffer failed to initialize\n");
+  }
+
+  /* ---------------------------------- inits ---------------------------------
+   */
+
+  // Initialize Rockblock
+  lineout("Initializing Rockblock...");
+  if (probeRockblockUart(1500)) {
+    if (initRockblock()) {
+      lineout("Rockblock Initialized\n");
+    } else {
+      lineout("Failed to initialize Rockblock\n");
+    }
+  } else {
+    lineout(
+        "Rockblock modem did not respond to AT probe; skipping modem init\n");
+  }
+
+  // Initialize AHT30 Temperature sensor
+  if (aht_alive = attempt_init_aht30()) {
+    lineout("AHT30 Initialized\n");
+  } else {
+    lineout("Failed to initialize AHT30 sensor\n");
+  }
+
+  // Initialize FXOS8700/FXAS21002 sensor
+  if (fxos_fxas_alive = (attempt_init_fxos8700() && attempt_init_fxas21002())) {
+    lineout("FXOS8700/FXAS21002 Initialized\n");
+  } else {
+    lineout("Failed to initialize FXOS8700/FXAS21002 sensor\n");
+    madgwick.begin(100);
+  }
+
+  // Initialize outside BMP390 Pressure sensor
+  if (bmp_outside_alive =
+          attempt_init_bmp390(&bmp_outside, 0x77)) { // outside temp/pres
+    lineout("Outside BMP390 on I2C Address 0x77 Initialized\n");
+  } else {
+    lineout("Could not find a valid outside BMP sensor, check wiring!\n");
+  }
+
+  // Initialize inside BMP390 Pressure sensor
+  if (bmp_inside_alive =
+          attempt_init_bmp390(&bmp_inside, 0x76)) { // inside temp/pres
+    lineout("Inside BMP390 on I2C Address 0x76 Initialized\n");
+  } else {
+    lineout("Could not find a valid inside BMP sensor, check wiring!\n");
+  }
+
+  // Initialize MCP9808 Temperature sensor
+  if (mcp_alive = attempt_init_mcp9808()) {
+    lineout("MCP9808 Initialized\n");
+  } else {
+    lineout("Failed to initialize MCP9808 sensor\n");
+  }
+
+  // Initialize INA228 Low Voltage Power Monitor
+  if (ina_low_alive = attempt_init_ina228(&ina_low, 0x41)) {
+    lineout("Low Voltage INA228 Initialized\n");
+  } else {
+    lineout("Failed to initialize Low Voltage INA228 sensor\n");
+  }
+
+  // Initialize INA219 High Voltage Power Monitor
+  if (ina_high_alive = attempt_init_ina219(&ina_high, 0x40)) {
+    lineout("High Voltage INA219 Initialized\n");
+  } else {
+    lineout("Failed to initialize High Voltage INA219 sensor\n");
+  }
+
+  // Initialize PID controller
+  PWMSetup(13, 5000, 8);
+  lineout("PWM Heater Controller Initialized\n");
+
+  PWMSetup(12, 5000, 8);
+  lineout("PWM Fan Controller Initialized\n");
+
+  /* --------------------------- Create pinned tasks --------------------------
+   */
+
+  xTaskCreatePinnedToCore(sensorTask, "SensorDataTask", 4096, NULL, 1, NULL,
+                          READ_CORE_ID);
+
+  xTaskCreatePinnedToCore(sdWriteTask, "SDWriteTask", 4096, NULL, 1, NULL,
+                          WRITE_CORE_ID);
+}
+
+// don't use
+void loop() {}
