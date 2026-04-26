@@ -21,7 +21,7 @@ extern bool ina_high_alive;
 extern float kp;
 extern float ki;
 extern float kd;
-extern float tragetTemperature;
+extern float targetTemperature;
 extern float maxVal;
 
 /* ------------------------------ Sensor Names ------------------------------ */
@@ -35,6 +35,8 @@ typedef enum {
     GyroPitch,
     GyroYaw,
     GyroLinAccX,
+    GyroLinAccY,
+    GyroLinAccZ,
 
     InsBmpTemp,
     InsBmpPress,
@@ -46,6 +48,7 @@ typedef enum {
 
     LowInaBusVolt,
     LowInaCurrent,
+    
     HighInaBusVolt,
     HighInaCurrent,
 

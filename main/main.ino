@@ -99,7 +99,7 @@ void readCore() {
       writeDataToBuffer("GyroLinAccY", gyro_data.linacc.y);
       writeDataToBuffer("GyroLinAccZ", gyro_data.linacc.z);
     } else {
-      lineout("Could not read AHT30 data");
+      lineout("Could not read Gyro data");
     }
 
     // bmp inside
