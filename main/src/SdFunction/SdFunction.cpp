@@ -135,23 +135,23 @@ bool LogWriteBuffer() { // Write log buffer to SD card and clear buffer
 
 
 void writeDataToBuffer(const char* name, float value) { // Write data to log buffer
-    // lineoutPrintf("RBT: %p\n", rockblockTable);
-    // if (rockblockTable) {
-    //     
-    //     int index = -1;
-    //     for (int i = 0; i < NUM_SENSORS; i++) {
-    //         if (strcmp(name, CSV_COLUMNS[i]) == 0) {
-    //             index = i;
-    //             break;
-    //         }
-    //     }
+    lineoutPrintf("RBT: %p\n", rockblockTable);
+    if (rockblockTable) {
+        
+        int index = -1;
+        for (int i = 0; i < NUM_SENSORS; i++) {
+            if (strcmp(name, CSV_COLUMNS[i]) == 0) {
+                index = i;
+                break;
+            }
+        }
 
-    //     if (table_memsize(rockblockTable) + sizeof(TableEntry) + 2 <= 340 && index != -1) { // Check if adding this entry would exceed the 340 byte SBD limit (with some buffer for metadata)
-    //         add_entry(rockblockTable, (TableEntry){ .time = millis(), .type = (SensorDataType)index, .data = value, });
-    //     } else if (index == -1) {
-    //         lineoutPrintf("Unknown sensor name, not adding to rockblock buffer value for %s\n", name); 
-    //     }
-    // }
+        if (table_memsize(rockblockTable) + sizeof(TableEntry) + 2 <= 340 && index != -1) { // Check if adding this entry would exceed the 340 byte SBD limit (with some buffer for metadata)
+            add_entry(rockblockTable, (TableEntry){ .time = millis(), .type = (SensorDataType)index, .data = value, });
+        } else if (index == -1) {
+            lineoutPrintf("Unknown sensor name, not adding to rockblock buffer value for %s\n", name); 
+        }
+    }
 
     if (sd.fatType() == 0) return; // card not initialized
     for (int i = 0; i < NUM_SENSORS; i++) { 
