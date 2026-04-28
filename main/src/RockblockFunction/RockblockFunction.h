@@ -1,23 +1,24 @@
 #pragma once
 
+#include "../Sensors.h"
 #include <Arduino.h>
 #include <IridiumSBD.h>
-#include "../Sensors.h"
+
+extern bool can_add_table;
 
 typedef struct {
-	uint64_t time;
-    SensorDataType type;
-	float data;
+  uint64_t time;
+  SensorDataType type;
+  float data;
 } __attribute__((packed)) TableEntry;
 
-
 typedef struct {
-	unsigned short size;
-	unsigned short capacity;
-	TableEntry *entries;
+  unsigned short size;
+  unsigned short capacity;
+  TableEntry *entries;
 } Table;
 
-typedef void * SerializedTable;
+typedef void *SerializedTable;
 
 extern IridiumSBD IridiumModem;
 
@@ -25,7 +26,8 @@ Table *new_table();
 void free_table(Table *t);
 Table *checkTable(Table *t);
 void add_entry(Table *t, TableEntry e);
-Table *add_sensor_data(Table *t, uint64_t time, SensorDataType type, float data);
+Table *add_sensor_data(Table *t, uint64_t time, SensorDataType type,
+                       float data);
 void seal_table(Table *t);
 SerializedTable serialize_table(Table *t);
 Table *deserialize_table(SerializedTable t);

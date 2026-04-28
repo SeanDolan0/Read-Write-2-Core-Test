@@ -5,11 +5,11 @@
 #include "src/Sensors.h"
 #include "src/log_wrapper/log_wrapper.h"
 
-
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
 static bool rockblockModemReady = false;
+bool can_add_table = true;
 
 bool ISBDCallback() {
   // Allow FreeRTOS to schedule IDLE tasks during long modem wait loops.
@@ -67,8 +67,14 @@ Table *checkTable(Table *t) {
     return new_table();
   }
   uint64_t now = millis();
-  if (table_memsize(t) + sizeof(TableEntry) + 2 >= 340) {
+  size_t ts = table_memsize(t) + sizeof(TableEntry) + 2;
+  if (ts >= 340) {
     // send_table(t);
+    // free_table(t);
+    // t = new_table();
+    can_add_table = true;
+  }
+  if (ts >= 500) {
     free_table(t);
     t = new_table();
   }
@@ -76,6 +82,8 @@ Table *checkTable(Table *t) {
 }
 
 void add_entry(Table *t, TableEntry e) {
+  if (can_add_table == false)
+    return;
   if (t->size >= t->capacity) {
     unsigned short newCapacity = t->capacity * 2;
     TableEntry *newEntries =
@@ -175,6 +183,10 @@ void send_table(Table *t) {
   } else {
     lineout("Rockblock message sent successfully", false);
   }
+
+  free_table(t);
+  t = new_table();
+  can_add_table = true;
 
   free(st);
 }
