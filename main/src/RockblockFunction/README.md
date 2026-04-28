@@ -4,9 +4,18 @@
 
 ## Overview
 
-Maintains an in-memory table of sensor snapshots and serializes it into a compact binary payload suitable for transmission over the [Iridium Short Burst Data (SBD)](https://www.iridium.com/services/iridium-sbd/) protocol. Entries are batched until the serialized payload approaches the 340-byte budget, at which point the table is sent and reset automatically.
+Manages the [Iridium RockBLOCK](https://www.groundcontrol.com/product/rockblock-9603/) modem and maintains an in-memory table of sensor snapshots that is serialized into a compact binary payload for transmission over the [Iridium Short Burst Data (SBD)](https://www.iridium.com/services/iridium-sbd/) protocol. Entries are batched until the serialized payload approaches the 340-byte SBD budget, at which point the table is reset automatically.
 
-In practice, entries are added directly via `add_entry()` from [`SdFunction`](../SdFunction/) rather than through `add_sensor_data()`.
+In practice, entries are added via `add_entry()` from [`SdFunction`](../SdFunction/) rather than through the deprecated `add_sensor_data()`.
+
+---
+
+## Dependencies
+
+- **IridiumSBD** — mikalhart/IridiumSBD library for Iridium modem communication
+- **Sensors.h** — `SensorDataType` enum used in `TableEntry`
+- **log_wrapper** — `lineout` / `lineoutDebugPrintf` for status messages
+- **FreeRTOS** — `vTaskDelay` used in the ISBDCallback to yield during modem waits
 
 ---
 
@@ -16,13 +25,13 @@ In practice, entries are added directly via `add_entry()` from [`SdFunction`](..
 
 A single sensor reading. The struct is `__attribute__((packed))` to eliminate padding and keep the serialized footprint predictable.
 
-| Field  | Type             | Description                                          |
-|--------|------------------|------------------------------------------------------|
-| `time` | `uint64_t`       | Milliseconds since device boot (uptime; from `millis()`) |
-| `type` | `SensorDataType` | Which sensor produced this reading (see `Sensors.h`) |
-| `data` | `float`          | The sensor value                                     |
+| Field  | Type             | Description                                              |
+|--------|------------------|----------------------------------------------------------|
+| `time` | `uint64_t`       | Milliseconds since device boot (from `millis()`)         |
+| `type` | `SensorDataType` | Which sensor produced this reading (see `Sensors.h`)     |
+| `data` | `float`          | The sensor value                                         |
 
-Each entry is **16 bytes** (8 + 4 + 4). Sentinel / invalid values for each sensor type are defined in [`Sensors.h`](../Sensors.h).
+Each entry is **16 bytes** (8 + 4 + 4).
 
 ---
 
@@ -52,6 +61,13 @@ A `typedef void*` pointing to a flat binary buffer. Layout:
 
 ## Public API
 
+### Modem Initialization
+
+#### `bool initRockblock()`
+Initializes the IridiumSBD modem on the configured UART (`IridiumSerial = Serial2`). Sets the send/receive timeout to 45 seconds. Returns `true` on success, `false` on error. Sets an internal `rockblockModemReady` flag that gates all future `send_table()` calls.
+
+---
+
 ### Table Lifecycle
 
 #### `Table* new_table()`
@@ -61,23 +77,23 @@ Allocates and returns a new, empty `Table` with `capacity = 64`. Returns `NULL` 
 Frees both the `entries` array and the `Table` struct itself.
 
 #### `void seal_table(Table* t)`
-Shrinks the `entries` allocation to exactly `size` entries, eliminating unused capacity. Called automatically by `send_table()` before serialization.
+Shrinks the `entries` allocation to exactly `size` entries. Called automatically by `send_table()` before serialization.
 
 ---
 
 ### Adding Data
 
 #### `void add_entry(Table* t, TableEntry e)`
-Low-level append. Doubles capacity via `realloc()` if `size >= capacity`. Does not check the 340-byte size limit — callers should verify budget before calling (e.g. `table_memsize(t) + sizeof(TableEntry) + 2 <= 340`).
+Low-level append. Doubles capacity via `realloc()` if `size >= capacity`.
 
 #### `Table* add_sensor_data(Table* t, uint64_t time, SensorDataType type, float data)` *(deprecated)*
-Convenience wrapper that calls `checkTable(t)` then `add_entry()`. Returns the (possibly new) table pointer. Prefer managing the table directly via `add_entry()` and `checkTable()`.
+Convenience wrapper around `checkTable()` and `add_entry()`. Returns the (possibly new) table pointer.
 
 > **Always reassign the return value:** `t = add_sensor_data(t, time, type, value);`
 
 #### `Table* checkTable(Table* t)`
 - If `t == NULL`: allocates and returns a fresh table.
-- If the next entry would push the serialized size past 340 bytes: calls `send_table(t)`, frees `t`, and returns a fresh table.
+- If the next entry would push the serialized size to 340 bytes or more: frees `t` and returns a fresh table. *(Does **not** transmit the old table — callers handle transmission separately.)*
 - Otherwise: returns `t` unchanged.
 
 ---
@@ -85,7 +101,7 @@ Convenience wrapper that calls `checkTable(t)` then `add_entry()`. Returns the (
 ### Serialization
 
 #### `SerializedTable serialize_table(Table* t)`
-Serializes the table to a flat binary buffer (see layout above). Returns `NULL` on allocation failure.
+Serializes the table to a flat binary buffer. Returns `NULL` on allocation failure.
 
 #### `Table* deserialize_table(SerializedTable t)`
 Reconstructs a `Table` from a previously serialized buffer. Intended for testing only.
@@ -98,30 +114,35 @@ Returns the byte length of the serialized representation: `2 * sizeof(unsigned s
 ### Transmission
 
 #### `void send_table(Table* t)`
-Seals and serializes the table, then prints the entry count and byte size over `Serial`. The Iridium SBD send call is currently stubbed out:
+Seals and serializes the table, then calls `IridiumModem.sendSBDBinary()` to transmit over Iridium SBD. Skips transmission and logs a warning if `rockblockModemReady` is `false`. Logs success or the error code on failure.
 
-```cpp
-// int status = IridiumModem.sendSBDBinary((uint8_t *)st, size);
-```
+---
+
+## ISBDCallback
+
+An `ISBDCallback()` function is registered with the IridiumSBD library. It calls `vTaskDelay(1 ms)` to yield to FreeRTOS IDLE tasks during long modem blocking loops, preventing the task watchdog from triggering.
 
 ---
 
 ## Usage Example
 
 ```cpp
-#include "Sensors.h"
-
-Table *t = NULL;
-
-// Add a reading directly:
-if (table_memsize(t) + sizeof(TableEntry) + 2 <= 340) {
-    add_entry(t, (TableEntry){ .time = millis(), .type = TempIns, .data = readTemp() });
+// Initialization
+if (initRockblock()) {
+    lineout("Rockblock ready");
 }
 
-// At the end of a mission or on demand:
-if (t && t->size > 0) {
-    send_table(t);
-    free_table(t);
-    t = NULL;
+// Adding entries (managed by SdFunction):
+if (table_memsize(rockblockTable) + sizeof(TableEntry) + 2 <= 340) {
+    add_entry(rockblockTable, (TableEntry){
+        .time = millis(),
+        .type = InsBmpTemp,
+        .data = readTemp()
+    });
 }
+
+// Periodic send (every 5 minutes):
+send_table(rockblockTable);
+free_table(rockblockTable);
+rockblockTable = new_table();
 ```
