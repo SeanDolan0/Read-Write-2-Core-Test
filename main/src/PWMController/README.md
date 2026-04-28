@@ -4,45 +4,56 @@
 
 ## Overview
 
-Configures the ESP32's LEDC (LED Control) peripheral to generate a PWM signal for driving a [FQP30N06L](https://www.onsemi.com/products/discrete-power-modules/mosfets/fqp30n06l) N-channel MOSFET. This is used to control a resistive heater or other DC load via the duty cycle. Intended to be used alongside [`PIDHeatController`](../PIDHeatController/) which calculates the duty cycle value.
-
----
-
-## Hardware Configuration
-
-| Setting        | Value      | Description                                         |
-|----------------|------------|-----------------------------------------------------|
-| `pwmPin`       | GPIO 13    | Connected to the MOSFET gate                        |
-| `freq`         | 5000 Hz    | PWM carrier frequency                               |
-| `ledChannel`   | 0          | ESP32 LEDC channel (0–15)                           |
-| `resolution`   | 8 bits     | Duty cycle range: 0–255                             |
+Configures the ESP32's LEDC (LED Control) peripheral to generate a PWM signal for driving a [FQP30N06L](https://www.onsemi.com/products/discrete-power-modules/mosfets/fqp30n06l) N-channel MOSFET. This is used to control a resistive heater or a cooling fan via duty cycle. Intended to be used alongside [`PIDHeatController`](../PIDHeatController/) which calculates the duty cycle value.
 
 ---
 
 ## Dependencies
 
-- **BluetoothFunction** — `SerialBT` used for user prompts (see [`BluetoothFunction/`](../BluetoothFunction/))
+- **log_wrapper** — `lineoutPrintf` for setup confirmation messages
 
 ---
 
 ## Public API
 
-#### `void PWMSetup()`
-Attaches `pwmPin` to `ledChannel` using `ledcSetup()` and `ledcAttachPin()`, then prints a prompt over `SerialBT` instructing the user to enter a duty cycle value (0–255).
+#### `void PWMSetup(int pwmPin, int freq, int resolution)`
+Attaches `pwmPin` to the LEDC peripheral with the specified frequency and resolution using `ledcAttach()`, then prints the configuration over Serial and Bluetooth.
 
-After calling `PWMSetup()`, use `ledcWrite(ledChannel, value)` to update the duty cycle.
+| Parameter    | Description                                                        |
+|--------------|--------------------------------------------------------------------|
+| `pwmPin`     | GPIO pin connected to the MOSFET gate                              |
+| `freq`       | PWM carrier frequency in Hz                                        |
+| `resolution` | Duty cycle resolution in bits (e.g. `8` → range 0–255)            |
+
+After calling `PWMSetup()`, use `ledcWrite(pwmPin, value)` to update the duty cycle.
+
+---
+
+## Usage in the Application
+
+The heater and fan are each initialized separately during `setup()`:
+
+```cpp
+PWMSetup(13, 5000, 8);  // Heater on GPIO 13
+PWMSetup(12, 5000, 8);  // Fan on GPIO 12
+```
+
+| Channel | GPIO | Frequency | Resolution | Load   |
+|---------|------|-----------|------------|--------|
+| Heater  | 13   | 5000 Hz   | 8-bit      | Resistive heater |
+| Fan     | 12   | 5000 Hz   | 8-bit      | Cooling fan      |
 
 ---
 
 ## Usage Example
 
 ```cpp
-PWMSetup();
+PWMSetup(13, 5000, 8);
+PWMSetup(12, 5000, 8);
 
 // In your control loop, driven by PID output:
-float dt = (millis() - lastTime) / 1000.0f;
-lastTime = millis();
-
 float pidOutput = CalculatePID(targetTemperature, currentTemp, dt);
-ledcWrite(ledChannel, (uint8_t)pidOutput);
+uint32_t duty = std::max(25u, static_cast<uint32_t>(pidOutput));
+ledcWrite(13, duty);   // heater
+ledcWrite(12, duty);   // fan
 ```
